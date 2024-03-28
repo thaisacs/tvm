@@ -94,3 +94,6 @@ def run_task_search_space(task, log_filename):
         _ffi_api.SaveRecords("test.log", inp, res);
 
     id = id + 1
+
+def save_record(inp, res, filename):
+    _ffi_api.SaveRecords(filename, inp, res);
