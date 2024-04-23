@@ -29,6 +29,8 @@
 #include <tvm/runtime/registry.h>
 #include <tvm/support/parallel_for.h>
 
+#include "../../autokcache/load_states.h"
+
 #include <algorithm>
 #include <iomanip>
 #include <limits>
@@ -295,6 +297,7 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
     sketch_cache_ = GenerateSketches();
   }
 
+  tvm::autokcache::load_file();
   // 2. Sample the init population
   Array<State> init_population = SampleInitPopulation(sketch_cache_);
 

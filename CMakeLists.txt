@@ -308,6 +308,7 @@ tvm_file_glob(GLOB_RECURSE COMPILER_SRCS
     src/arith/*.cc
     src/te/*.cc
     src/autotvm/*.cc
+    src/autokcache/*.cc
     src/tir/*.cc
     src/topi/*.cc
     src/driver/*.cc
