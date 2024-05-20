@@ -12,7 +12,7 @@
 namespace tvm {
 namespace autokcache {
 
-void load_file();
+Array<tvm::auto_scheduler::State> load_file(tvm::auto_scheduler::SearchTask);
 
 }  // namespace autokcache
 }  // namespace tvm
