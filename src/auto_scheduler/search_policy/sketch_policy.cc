@@ -297,9 +297,9 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
     sketch_cache_ = GenerateSketches();
   }
 
-  tvm::autokcache::load_file();
   // 2. Sample the init population
-  Array<State> init_population = SampleInitPopulation(sketch_cache_);
+  //Array<State> init_population = SampleInitPopulation(sketch_cache_);
+  Array<State> init_population = tvm::autokcache::load_file(search_task);
 
   // 3. Perform evolutionary search.
   // Also insert already measured good states to the initial population
