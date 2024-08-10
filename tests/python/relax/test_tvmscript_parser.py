@@ -2271,5 +2271,97 @@ def test_define_relax_function_using_global_var():
     tvm.ir.assert_structural_equal(DefinedAllAtOnce, MainDefinedLater)
 
 
+def test_function_attributes_are_defined():
+    """func.attrs defaults to an empty DictAttrs"""
+
+    @I.ir_module
+    class Module:
+        @R.function
+        def main(x: R.Tensor, shape: R.Shape(["m", "n"])):
+            output = Module.subroutine(x, shape)
+            return output
+
+        @R.function
+        def subroutine(x: R.Tensor, _: R.Shape(["m", "n"])) -> R.Tensor(["m", "n"]):
+            q = x
+            m, n = T.int64(), T.int64()
+            z = R.match_cast(q, R.Tensor((m, n)))
+            w = z
+            return w
+
+    for gvar, func in Module.functions.items():
+        assert func.attrs is not None
+
+
+@pytest.mark.xfail(reason="Bug: Implicit bounds not provided when parsing")
+def test_function_symbolic_variables_are_annotated():
+    """Symbolic variables must be exposed for struct inference
+
+    Because Relax struct inference is performed while the function is
+    being built, all constraints on symbolic variables that are used
+    for simplifications must be provided to the analyzer.
+    """
+
+    @R.function(private=True)
+    def inferred_sinfo(A: R.Tensor(["extent"])):
+        extent = T.int64()
+        output = R.strided_slice(A, [0], [0], [extent - 1])
+        return output
+
+    @R.function(private=True)
+    def expected(A: R.Tensor(["extent"])) -> R.Tensor(["extent-1"]):
+        extent = T.int64()
+        output: R.Tensor([extent - 1]) = R.strided_slice(A, [0], [0], [extent - 1])
+        return output
+
+    tvm.ir.assert_structural_equal(inferred_sinfo, expected)
+
+
+def test_conditional_may_use_symbolic_variables_from_function_scope():
+    """Symbolic variables from function scope may be used in branch
+
+    This is a regression test.  In earlier implementations, the
+    branches of `relax::If` were normalized with
+    `EraseToWellDefinedInScope`, using a fresh variable scope.  While
+    this had the intended behavior of preventing variables defined in
+    a single branch from being usable outside of the conditional, it
+    also caused the conditional's branches to treat function-scope
+    symbolic variables as if they were undefined.
+
+    """
+
+    @R.function(private=True)
+    def explicit_sinfo(
+        A: R.Tensor(["N"], "float32"),
+        B: R.Tensor(["N"], "float32"),
+        cond: R.Prim("bool"),
+    ) -> R.Tensor(["N"], "float32"):
+
+        N = T.int64()
+
+        if cond:
+            out: R.Tensor([N], "float32") = A + B
+        else:
+            out: R.Tensor([N], "float32") = A * B
+
+        return out
+
+    @R.function(private=True)
+    def inferred_sinfo(
+        A: R.Tensor(["N"], "float32"),
+        B: R.Tensor(["N"], "float32"),
+        cond: R.Prim("bool"),
+    ):
+        N = T.int64()
+        if cond:
+            out = A + B
+        else:
+            out = A * B
+
+        return out
+
+    tvm.ir.assert_structural_equal(explicit_sinfo, inferred_sinfo)
+
+
 if __name__ == "__main__":
     tvm.testing.main()

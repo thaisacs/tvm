@@ -28,6 +28,7 @@ endif()
 # Alernatively, use cmake -DOPTION=VALUE through command-line.
 tvm_option(USE_CUDA "Build with CUDA" OFF)
 tvm_option(USE_NCCL "Build with NCCL" OFF)
+tvm_option(USE_MSCCL "Build with MSCCL" OFF)
 tvm_option(USE_OPENCL "Build with OpenCL" OFF)
 tvm_option(USE_OPENCL_ENABLE_HOST_PTR "Enable OpenCL memory object access to host" OFF)
 tvm_option(USE_OPENCL_GTEST "Path to OpenCL specific gtest version for runtime cpp tests." /path/to/opencl/gtest)
@@ -63,6 +64,7 @@ tvm_option(USE_PROFILER "Build profiler for the VM and graph executor" ON)
 tvm_option(USE_OPENMP "Build with OpenMP thread pool implementation" OFF)
 tvm_option(USE_RELAY_DEBUG "Building Relay in debug mode..." OFF)
 tvm_option(TVM_DEBUG_WITH_ABI_CHANGE "Enable debug code that may cause ABI changes" OFF)
+tvm_option(TVM_LOG_BEFORE_THROW "Whether log before throw, for debugging purposes" OFF)
 tvm_option(USE_RTTI "Build with RTTI" ON)
 tvm_option(USE_MSVC_MT "Build with MT" OFF)
 tvm_option(USE_MICRO "Build with Micro TVM support" OFF)
@@ -154,6 +156,12 @@ if(NOT IS_SUBPROJECT AND NOT DEFINED "${CMAKE_EXPORT_COMPILE_COMMANDS}")
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 endif()
 
+if(TVM_LOG_BEFORE_THROW)
+  # log error before throw as
+  # when system have issues with stack trace
+  add_definitions(-DDMLC_LOG_BEFORE_THROW=1)
+endif()
+
 # Generic compilation options
 if(MSVC)
   add_definitions(-DWIN32_LEAN_AND_MEAN)
@@ -161,9 +169,7 @@ if(MSVC)
   add_definitions(-D_SCL_SECURE_NO_WARNINGS)
   add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
   add_definitions(-DNOMINMAX)
-  # log error before throw as usually windows
-  # may have issues with stack trace
-  add_definitions(-DDMLC_LOG_BEFORE_THROW=1)
+
   # regeneration does not work well with msbuild custom rules.
   set(CMAKE_SUPPRESS_REGENERATION ON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
@@ -380,6 +386,12 @@ if(BUILD_FOR_HEXAGON)
 
   add_definitions(-D_MACH_I32=int)
   add_definitions(-DDMLC_CXX11_THREAD_LOCAL=0)
+endif()
+
+# distributed disco runtime are disabled for hexagon
+if (NOT BUILD_FOR_HEXAGON)
+  tvm_file_glob(GLOB RUNTIME_DISCO_DISTRIBUTED_SRCS src/runtime/disco/distributed/*.cc)
+  list(APPEND RUNTIME_SRCS ${RUNTIME_DISCO_DISTRIBUTED_SRCS})
 endif()
 
 # Package runtime rules
@@ -941,8 +953,8 @@ endif()
 
 if(USE_CUDA AND USE_NCCL)
   find_library(LIBRT rt)
-  target_link_libraries(tvm PRIVATE nccl msccl ${LIBRT})
-  target_link_libraries(tvm_runtime PRIVATE nccl msccl ${LIBRT})
+  target_link_libraries(tvm PRIVATE nccl ${LIBRT})
+  target_link_libraries(tvm_runtime PRIVATE nccl ${LIBRT})
 endif()
 
 if(USE_ROCM AND USE_RCCL)
@@ -955,13 +967,13 @@ option(USE_FLASHINFER "Build TVM with FlashInfer" OFF)
 if (USE_FLASHINFER STREQUAL "ON")
   message(STATUS "Build with FlashInfer")
   set(FLASHINFER_TVM_BINDING ON)
-  set(FLASHINFER_TVM_HOME ${PROJECT_SOURCE_DIR})
-  set(FLASHINFER_ENABLE_FP8 OFF)
-  set(FLASHINFER_ENABLE_BF16 OFF)
+  set(FLASHINFER_TVM_SOURCE_DIR ${PROJECT_SOURCE_DIR})
   set(FLASHINFER_PREFILL OFF)
   set(FLASHINFER_DECODE OFF)
   set(FLASHINFER_PAGE OFF)
   set(FLASHINFER_CASCADE OFF)
+  set(FLASHINFER_SAMPLING OFF)
+  set(FLASHINFER_NORM OFF)
   add_subdirectory(3rdparty/flashinfer)
 else ()
   message(STATUS "Build without FlashInfer")

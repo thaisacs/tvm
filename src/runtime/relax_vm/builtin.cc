@@ -343,15 +343,12 @@ Storage VMAllocStorage(void* ctx_ptr, ShapeTuple buffer_shape, Index device_inde
     device_index = vm->devices.size() - 1;
   }
 
-  auto storage_obj = runtime::SimpleObjAllocator().make_object<StorageObj>();
   auto* alloc = vm->allocators[device_index];
   ICHECK(alloc) << "Did you forget to init the VirtualMachine with devices?";
 
-  storage_obj->buffer =
-      alloc->Alloc(vm->devices[device_index], buffer_shape, dtype_hint, mem_scope);
-  storage_obj->allocator = alloc;
-  Storage storage(storage_obj);
-  return storage;
+  auto buffer = alloc->Alloc(vm->devices[device_index], buffer_shape, dtype_hint, mem_scope);
+
+  return Storage(buffer, alloc);
 }
 
 TVM_REGISTER_GLOBAL("vm.builtin.alloc_storage").set_body_typed(VMAllocStorage);
@@ -546,6 +543,25 @@ TVM_REGISTER_GLOBAL("vm.builtin.tensor_to_shape").set_body_typed([](NDArray data
     out_shape.push_back(result);
   }
   return ShapeTuple(out_shape);
+});
+
+TVM_REGISTER_GLOBAL("vm.builtin.ensure_zero_offset").set_body_typed([](NDArray data) {
+  if (data->byte_offset == 0) {
+    return data;
+  }
+  auto* device_api = DeviceAPI::Get(data->device);
+  if (device_api->SupportsDevicePointerArithmeticsOnHost() &&
+      data->byte_offset % tvm::runtime::kAllocAlignment == 0) {
+    DLManagedTensor* dl_tensor = data.ToDLPack();
+    dl_tensor->dl_tensor.data =
+        reinterpret_cast<char*>(dl_tensor->dl_tensor.data) + dl_tensor->dl_tensor.byte_offset;
+    dl_tensor->dl_tensor.byte_offset = 0;
+    return NDArray::FromDLPack(dl_tensor);
+  } else {
+    auto new_array = NDArray::Empty(data.Shape(), data->dtype, data->device);
+    new_array.CopyFrom(data);
+    return new_array;
+  }
 });
 
 }  // namespace relax_vm

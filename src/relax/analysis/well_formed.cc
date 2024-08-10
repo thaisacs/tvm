@@ -281,11 +281,7 @@ class WellFormedChecker : public relax::ExprVisitor,
       }
     }
 
-    if (auto seq = op->body.as<SeqExprNode>()) {
-      this->VisitSeqExpr(seq);
-    } else {
-      Malformed(Diagnostic::Error(op) << "Function bodies must be sequence expressions");
-    }
+    this->VisitSeqExpr(op->body.get());
 
     is_dataflow_ = old_dataflow_state;
     dataflow_var_set_ = prev_dataflow_var_set;
@@ -367,21 +363,16 @@ class WellFormedChecker : public relax::ExprVisitor,
     } else {
       Malformed(Diagnostic::Error(op) << "The condition for an if node must be a leaf expression.");
     }
-    auto true_seq = op->true_branch.as<SeqExprNode>();
-    auto false_seq = op->false_branch.as<SeqExprNode>();
-    if (true_seq && false_seq) {
-      std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> previous_var_set = var_set_;
-      std::unordered_set<tir::Var, ObjectPtrHash, ObjectPtrEqual> previous_symbolic_var_set =
-          symbolic_var_set_;
-      this->VisitSeqExpr(true_seq);
-      var_set_ = previous_var_set;
-      symbolic_var_set_ = previous_symbolic_var_set;
-      this->VisitSeqExpr(false_seq);
-      var_set_ = previous_var_set;
-      symbolic_var_set_ = previous_symbolic_var_set;
-    } else {
-      Malformed(Diagnostic::Error(op) << "If node branches must be seq exprs");
-    }
+
+    std::unordered_set<Var> previous_var_set = var_set_;
+    std::unordered_set<tir::Var> previous_symbolic_var_set = symbolic_var_set_;
+    this->VisitSeqExpr(op->true_branch.get());
+    var_set_ = previous_var_set;
+    symbolic_var_set_ = previous_symbolic_var_set;
+    this->VisitSeqExpr(op->false_branch.get());
+    var_set_ = previous_var_set;
+    symbolic_var_set_ = previous_symbolic_var_set;
+
     CheckStructInfo(op);
   }
 
@@ -575,13 +566,12 @@ class WellFormedChecker : public relax::ExprVisitor,
   // Current visit mode.
   VisitMode mode_ = VisitMode::kDefault;
   // set of context variables.
-  std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> var_set_;
-  std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> recur_vars_;
+  std::unordered_set<Var> var_set_;
+  std::unordered_set<Var> recur_vars_;
   std::unordered_set<DataflowVar, ObjectPtrHash, ObjectPtrEqual> dataflow_var_set_;
-  std::unordered_set<tir::Var, ObjectPtrHash, ObjectPtrEqual> symbolic_var_set_;
-  std::unordered_map<Var, const FunctionNode*, ObjectPtrHash, ObjectPtrEqual> param_var_func_map_;
-  std::unordered_map<tir::Var, const FunctionNode*, ObjectPtrHash, ObjectPtrEqual>
-      symbolic_var_func_map_;
+  std::unordered_set<tir::Var> symbolic_var_set_;
+  std::unordered_map<Var, const FunctionNode*> param_var_func_map_;
+  std::unordered_map<tir::Var, const FunctionNode*> symbolic_var_func_map_;
 
   tvm::OpAttrMap<FNormalize> op_map_normalize_ = Op::GetAttrMap<FNormalize>("FNormalize");
 };

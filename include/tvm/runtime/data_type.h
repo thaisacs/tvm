@@ -111,7 +111,9 @@ class DataType {
     return -lanes_as_int;
   }
   /*! \return get vscale factor or lanes depending on scalability of the vector. */
-  int get_lanes_or_vscale_factor() { return is_scalable_vector() ? vscale_factor() : lanes(); }
+  int get_lanes_or_vscale_factor() const {
+    return is_scalable_vector() ? vscale_factor() : lanes();
+  }
   /*! \return whether type is a scalar type. */
   bool is_scalar() const { return !is_scalable_vector() && lanes() == 1; }
   /*! \return whether type is a scalar type. */
@@ -124,6 +126,9 @@ class DataType {
             code() == DataType::kE5M2Float) &&
            bits() == 8;
   }
+  bool is_e4m3_float8() const { return (code() == DataType::kE4M3Float && bits() == 8); }
+
+  bool is_e5m2_float8() const { return (code() == DataType::kE5M2Float && bits() == 8); }
   /*! \return whether type is a float16 type. */
   bool is_float16() const { return is_float() && bits() == 16; }
   /*! \return whether type is a bfloat16 type. */

@@ -419,13 +419,19 @@ Expr NormalizeCallTIRInPlace(const BlockBuilder& ctx, Call call) {
   // may result in an error if performed before normalization.
   call = Downcast<Call>(NormalizeCallTIR(ctx, std::move(call)));
 
+  Array<StructInfo> sinfo_outputs = [&]() -> Array<StructInfo> {
+    auto out_sinfo = call->sinfo_args[0];
+    if (auto* tuple_output = out_sinfo.as<TupleStructInfoNode>()) {
+      return tuple_output->fields;
+    } else {
+      return {out_sinfo};
+    }
+  }();
+
   // there must be an inplace index for each output
   const auto* attrs = call->attrs.as<CallTIRInplaceAttrs>();
-  size_t num_outputs = 1U;
-  if (auto* tup_info = call->sinfo_args[0].as<TupleStructInfoNode>()) {
-    num_outputs = tup_info->fields.size();
-  }
-  if (attrs->inplace_indices.size() != num_outputs) {
+  ICHECK(attrs);
+  if (attrs->inplace_indices.size() != sinfo_outputs.size()) {
     ctx->ReportFatal(Diagnostic::Error(call)
                      << "There must be an in-place index specified for each output");
   }
@@ -459,45 +465,37 @@ Expr NormalizeCallTIRInPlace(const BlockBuilder& ctx, Call call) {
   // input shape
   // TODO(@slyubomirsky): eventually we will want to handle cases where that is not true
   Tuple call_args = Downcast<Tuple>(call->args[1]);
-  if (attrs->inplace_indices.size() == 1) {
-    auto* out_sinfo = call->sinfo_args[0].as<TensorStructInfoNode>();
-    if (!out_sinfo) {
-      ctx->ReportFatal(Diagnostic::Error(call) << "The output struct info must be a tensor");
+
+  for (size_t i_output = 0; i_output < attrs->inplace_indices.size(); i_output++) {
+    auto i_input = attrs->inplace_indices[i_output].IntValue();
+    if (i_input == -1) {
+      continue;
     }
-    auto* input_sinfo = GetStructInfoAs<TensorStructInfoNode>(
-        call_args->fields[attrs->inplace_indices[0].IntValue()]);
-    if (!input_sinfo || !input_sinfo->shape.defined() ||
-        !CanProveShapeEqual(input_sinfo->shape.value(), out_sinfo->shape.value(),
-                            ctx->GetAnalyzer())) {
+
+    auto sinfo_output = sinfo_outputs[i_output];
+    auto tinfo_output = sinfo_output.as<TensorStructInfoNode>();
+
+    if (!tinfo_output || !tinfo_output->shape.defined() || tinfo_output->IsUnknownDtype()) {
       ctx->ReportFatal(Diagnostic::Error(call)
-                       << "The shape of output 0 must match input "
-                       << attrs->inplace_indices[0].IntValue() << ", whereas we have "
-                       << out_sinfo->shape.value() << " in output 0 versus "
-                       << input_sinfo->shape.value() << " in input "
-                       << attrs->inplace_indices[0].IntValue());
+                       << "The output struct info for an in-place mutation must be a tensor "
+                       << "with a defined shape and dtype, "
+                       << "but output " << i_output << " has struct info " << sinfo_output);
     }
-  } else {
-    auto out_sinfos = call->sinfo_args[0].as<TupleStructInfoNode>()->fields;
-    for (size_t i = 0; i < attrs->inplace_indices.size(); i++) {
-      if (attrs->inplace_indices[i].IntValue() == -1) {
-        continue;
-      }
-      auto* out_sinfo = out_sinfos[i].as<TensorStructInfoNode>();
-      if (!out_sinfo) {
-        ctx->ReportFatal(Diagnostic::Error(call) << "The output struct info must be a tensor");
-      }
-      auto* input_sinfo = GetStructInfoAs<TensorStructInfoNode>(
-          call_args->fields[attrs->inplace_indices[i].IntValue()]);
-      if (!input_sinfo || !input_sinfo->shape.defined() ||
-          !CanProveShapeEqual(input_sinfo->shape.value(), out_sinfo->shape.value(),
-                              ctx->GetAnalyzer())) {
-        ctx->ReportFatal(Diagnostic::Error(call)
-                         << "The shape of output " << i << " must match that of input "
-                         << attrs->inplace_indices[i].IntValue() << ", whereas we have "
-                         << out_sinfo->shape.value() << " in output " << i << " versus "
-                         << input_sinfo->shape.value() << " in input "
-                         << attrs->inplace_indices[i].IntValue());
-      }
+
+    auto sinfo_input = GetStructInfo(call_args->fields[i_input]);
+    auto tinfo_input = sinfo_input.as<TensorStructInfoNode>();
+
+    if (!tinfo_input ||
+        (tinfo_output->IsUnknownDtype() || tinfo_output->dtype != tinfo_input->dtype) ||
+        (!tinfo_input->shape.defined() ||
+         !CanProveShapeEqual(tinfo_input->shape.value(), tinfo_output->shape.value(),
+                             ctx->GetAnalyzer()))) {
+      ctx->ReportFatal(Diagnostic::Error(call)
+                       << "The input used for an in-place mutation must be "
+                       << "a tensor with identical shape and dtype as the output.  "
+                       << "However, output " << i_output << " with struct info " << sinfo_output
+                       << " is specified as an in-place mutation of input " << i_input
+                       << " with struct info " << sinfo_input);
     }
   }
 
@@ -851,7 +849,8 @@ RELAY_REGISTER_OP("relax.builtin.alloc_tensor")
                   "The storage scope of the storage to allocate. Default is global.")
     .set_attr<FInferStructInfo>("FInferStructInfo", InferStructInfoAllocateTensor)
     // memory allocation isn't considered a "visible effect" as far as purity is concerned
-    .set_attr<Bool>("FPurity", Bool(true));
+    .set_attr<Bool>("FPurity", Bool(true))
+    .set_attr<Bool>("TAllocator", Bool(true));
 
 Expr MakeAllocTensor(Expr shape, DataTypeImm dtype, PrimValue runtime_device_index,
                      StringImm storage_scope) {
@@ -875,7 +874,8 @@ RELAY_REGISTER_OP("relax.memory.alloc_storage")
     .add_argument("dtype", "DataTypeImm", "The dtype of the tensor to allocate.")
     .set_attr<FInferStructInfo>("FInferStructInfo", ReturnObjectStructInfo)
     // memory allocation isn't considered a "visible effect" as far as purity is concerned
-    .set_attr<Bool>("FPurity", Bool(true));
+    .set_attr<Bool>("FPurity", Bool(true))
+    .set_attr<Bool>("TAllocator", Bool(true));
 
 Expr MakeAllocStorage(Expr size, PrimValue virtual_device_index, StringImm storage_scope,
                       DataTypeImm dtype) {
@@ -906,7 +906,8 @@ RELAY_REGISTER_OP("relax.memory.alloc_tensor")
     .add_argument("dtype", "DataTypeImm", "The dtype of the tensor to allocate.")
     .set_attr<FInferStructInfo>("FInferStructInfo", InferStructInfoMemAllocTensor)
     // memory allocation isn't considered a "visible effect" as far as purity is concerned
-    .set_attr<Bool>("FPurity", Bool(true));
+    .set_attr<Bool>("FPurity", Bool(true))
+    .set_attr<Bool>("TAllocator", Bool(true));
 
 Expr MakeMemAllocTensor(Expr storage, PrimValue offset, Expr shape, DataTypeImm dtype) {
   static const Op& op = Op::Get("relax.memory.alloc_tensor");
@@ -960,7 +961,8 @@ RELAY_REGISTER_OP("relax.vm.alloc_storage")
                   "The storage scope of the storage to allocate. Default is global.")
     .set_attr<FInferStructInfo>("FInferStructInfo", ReturnObjectStructInfo)
     // memory allocation isn't considered a "visible effect" as far as purity is concerned
-    .set_attr<Bool>("FPurity", Bool(true));
+    .set_attr<Bool>("FPurity", Bool(true))
+    .set_attr<Bool>("TAllocator", Bool(true));
 
 Expr MakeVMAllocStorage(Expr size, PrimValue runtime_device_index, DataTypeImm dtype,
                         StringImm storage_scope) {
@@ -998,7 +1000,8 @@ RELAY_REGISTER_OP("relax.vm.alloc_tensor")
     .add_argument("dtype", "DataTypeImm", "The dtype of the tensor to allocate.")
     .set_attr<FInferStructInfo>("FInferStructInfo", InferStructInfoVMAllocTensor)
     // memory allocation isn't considered a "visible effect" as far as purity is concerned
-    .set_attr<Bool>("FPurity", Bool(true));
+    .set_attr<Bool>("FPurity", Bool(true))
+    .set_attr<Bool>("TAllocator", Bool(true));
 
 Expr MakeVMAllocTensor(Expr storage, PrimValue offset, Expr shape, DataTypeImm dtype) {
   static const Op& op = Op::Get("relax.vm.alloc_tensor");

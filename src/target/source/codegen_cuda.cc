@@ -48,21 +48,22 @@ std::string GetFP8Type(DataType type) {
   if (type.is_scalar()) {
     vec = "";
   } else if (lanes == 2) {
-    vec = "_2";
+    vec = "x2";
   } else if (lanes == 4) {
-    vec = "_4";
-  } else if (lanes == 8) {
-    vec = "_8";
+    vec = "x4";
   } else {
     LOG(FATAL) << "Only support scalar and vector types of width (2, 4, 8) for FP8";
   }
+  stream << "__nv_fp8";
+  std::string suffix;
   if (type.code() == DataType::kE4M3Float) {
-    stream << "fp8_e4" << vec << "_t";
+    suffix = "_e4m3";
   } else if (type.code() == DataType::kE5M2Float) {
-    stream << "fp8_e5" << vec << "_t";
+    suffix = "_e5m2";
   } else {
     LOG(FATAL) << "Unsupported FP8 type in CUDA codegen";
   }
+  stream << vec << suffix;
   return stream.str();
 }
 
@@ -146,12 +147,6 @@ std::string CodeGenCUDA::Finish() {
   if (enable_fp8_) {
     decl_stream << "#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 890)\n";
     decl_stream << "#include <cuda_fp8.h>\n";
-    decl_stream << "using fp8_e4_t = __nv_fp8_e4m3;\n";
-    decl_stream << "using fp8_e4_2_t = __nv_fp8x2_e4m3;\n";
-    decl_stream << "using fp8_e4_4_t = __nv_fp8x4_e4m3;\n";
-    decl_stream << "using fp8_e5_t = __nv_fp8_e5m2;\n";
-    decl_stream << "using fp8_e5_2_t = __nv_fp8x2_e5m2;\n";
-    decl_stream << "using fp8_e5_4_t = __nv_fp8x4_e5m2;\n";
     decl_stream << "#endif\n\n";
   }
   declare_vector_type_extensions(decl_stream, enable_fp16_, enable_fp8_);
@@ -299,7 +294,11 @@ void CodeGenCUDA::PrintType(DataType t, std::ostream& os) {  // NOLINT(*)
     if (!fail) return;
   } else if (t.is_float8()) {
     enable_fp8_ = true;
-    os << GetFP8Type(t);
+    if (t.lanes() <= 4) {
+      os << GetFP8Type(t);
+    } else {
+      os << "uint" << t.lanes() / 4;
+    }
     return;
   } else if (t == DataType::Bool()) {
     os << "bool";
@@ -1260,6 +1259,21 @@ void CodeGenCUDA::VisitExpr_(const BroadcastNode* op, std::ostream& os) {  // NO
     return;
   }
 
+  if (op->dtype.is_float8()) {
+    int lanes = op->dtype.lanes();
+    ICHECK(lanes == 1 || lanes == 2 || lanes == 4);
+    std::string v = PrintExpr(op->value);
+    // Implicit conversion from float back to fp8
+    PrintType(op->dtype, os);
+    os << "(make_float" << lanes << "(";
+    for (int i = 0; i < lanes; ++i) {
+      if (i != 0) os << ", ";
+      os << "static_cast<float>(" << v << ")";
+    }
+    os << "))";
+    return;
+  }
+
   if ((op->dtype.is_int() || op->dtype.is_uint()) && op->dtype.bits() == 4) {
     bool fail = false;
     const int64_t* p = as_const_int(op->value);
@@ -1356,6 +1370,12 @@ inline void PrintConst(const FloatImmNode* op, std::ostream& os, CodeGenCUDA* p)
   // Type code is kBFloat
   if (op->dtype.is_bfloat16()) {
     os << "__float2bfloat16_rn";
+    os << '(' << std::scientific << op->value << 'f' << ')';
+    return;
+  }
+  // Type code is kE5M2Float or kE4M4Float
+  if (op->dtype.is_float8()) {
+    p->PrintType(op->dtype, os);
     os << '(' << std::scientific << op->value << 'f' << ')';
     return;
   }

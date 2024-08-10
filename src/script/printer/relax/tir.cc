@@ -18,6 +18,7 @@
  */
 #include <tvm/ir/expr.h>
 
+#include "../tir/utils.h"
 #include "./utils.h"
 
 namespace tvm {
@@ -41,9 +42,10 @@ RelaxFrameNode* GetRelaxFrame(IRDocsifier d) {
 }
 
 Doc PrintTIRVar(tir::Var n, ObjectPath n_p, IRDocsifier d) {
-  ICHECK(n->dtype.is_int() && n->dtype.is_scalar()) << "TypeError: Relax only uses "
-                                                       "scalar integer TIR variables, but gets: "
-                                                    << n;
+  ICHECK(n->dtype.is_scalar()) << "TypeError: "
+                               << "Relax only uses scalar TIR variables,"
+                               << "but received TIR variable " << n << " with dtype " << n->dtype;
+
   if (!d->IsVarDefined(n)) {
     RelaxFrameNode* f = GetRelaxFrame(d);
     // There should be at least one Relax frame
@@ -58,7 +60,7 @@ Doc PrintTIRVar(tir::Var n, ObjectPath n_p, IRDocsifier d) {
     }
     IdDoc var = d->Define(n, GetRef<Frame>(f), n->name_hint.empty() ? "v" : n->name_hint);
     var->source_paths.push_back(n_p);
-    f->stmts.push_back(AssignDoc(var, TIR(d, DType2Str(n->dtype))->Call({}), NullOpt));
+    f->stmts.push_back(AssignDoc(var, PrintVarCreation(n, n_p, d), NullOpt));
   }
   if (Optional<ExprDoc> doc = d->GetVarDoc(n)) {
     return doc.value();

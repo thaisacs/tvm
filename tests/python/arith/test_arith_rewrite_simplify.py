@@ -20,9 +20,12 @@ import inspect
 import pytest
 
 import tvm
+import tvm.testing
 from tvm import te, tir
-
-from tvm.tir import truncdiv as tdiv, truncmod as tmod, floordiv as fld, floormod as flm
+from tvm.tir import floordiv as fld
+from tvm.tir import floormod as flm
+from tvm.tir import truncdiv as tdiv
+from tvm.tir import truncmod as tmod
 
 
 class TestCase:
@@ -318,6 +321,42 @@ class TestSelect(BaseCompare):
     )
 
 
+class TestCancellation(BaseCompare):
+    var_int8 = tir.Var("var_int8", "int8")
+    var_int32 = tir.Var("var_int32", "int32")
+    var_int64 = tir.Var("var_int64", "int64")
+    var_uint8 = tir.Var("var_uint8", "uint8")
+    var_uint32 = tir.Var("var_uint32", "uint32")
+    var_uint64 = tir.Var("var_uint64", "uint64")
+
+    test_case = tvm.testing.parameter(
+        TestCase(tir.const(5, "int64") - tir.const(5, "int64"), tir.const(0, "int64")),
+        TestCase(tir.const(5, "uint8") - tir.const(5, "uint8"), tir.const(0, "uint8")),
+        TestCase(var_int8 - var_int8, tir.const(0, "int8")),
+        TestCase(var_int32 - var_int32, tir.const(0, "int32")),
+        TestCase(var_int64 - var_int64, tir.const(0, "int64")),
+        TestCase(var_uint8 - var_uint8, tir.const(0, "uint8")),
+        TestCase(var_uint32 - var_uint32, tir.const(0, "uint32")),
+        TestCase(var_uint64 - var_uint64, tir.const(0, "uint64")),
+        TestCase(tir.EQ(tir.const(5, "int64"), tir.const(5, "int64")), tir.const(True, "bool")),
+        TestCase(tir.EQ(tir.const(5, "uint8"), tir.const(5, "uint8")), tir.const(True, "bool")),
+        TestCase(tir.EQ(var_int8, var_int8), tir.const(True, "bool")),
+        TestCase(tir.EQ(var_int32, var_int32), tir.const(True, "bool")),
+        TestCase(tir.EQ(var_int64, var_int64), tir.const(True, "bool")),
+        TestCase(tir.EQ(var_uint8, var_uint8), tir.const(True, "bool")),
+        TestCase(tir.EQ(var_uint32, var_uint32), tir.const(True, "bool")),
+        TestCase(tir.EQ(var_uint64, var_uint64), tir.const(True, "bool")),
+        TestCase(tir.NE(tir.const(5, "int64"), tir.const(5, "int64")), tir.const(False, "bool")),
+        TestCase(tir.NE(tir.const(5, "uint8"), tir.const(5, "uint8")), tir.const(False, "bool")),
+        TestCase(tir.NE(var_int8, var_int8), tir.const(False, "bool")),
+        TestCase(tir.NE(var_int32, var_int32), tir.const(False, "bool")),
+        TestCase(tir.NE(var_int64, var_int64), tir.const(False, "bool")),
+        TestCase(tir.NE(var_uint8, var_uint8), tir.const(False, "bool")),
+        TestCase(tir.NE(var_uint32, var_uint32), tir.const(False, "bool")),
+        TestCase(tir.NE(var_uint64, var_uint64), tir.const(False, "bool")),
+    )
+
+
 class TestAddIndex(BaseCompare):
     x, y, z = te.var("x"), te.var("y"), te.var("z")
 
@@ -556,6 +595,7 @@ class TestFloordivIndex(BaseCompare):
         TestCase(fld(x * y, y), x, y >= 0),
         TestCase(fld(y * x, y), x, y >= 0),
         TestCase(fld(x * z + y, z), x + fld(y, z), z >= 0),
+        TestCase(fld(x * z * 2 + y, z * 2), x + fld(y, z * 2), z * 2 >= 0),
         TestCase(fld(z * x + y, z), x + fld(y, z), z >= 0),
         TestCase(fld(y + x * z, z), fld(y, z) + x, z >= 0),
         TestCase(fld(y + z * x, z), fld(y, z) + x, z >= 0),
@@ -613,6 +653,7 @@ class TestFloormodIndex(BaseCompare):
         TestCase(flm(x + y * (-10), 2), flm(x, 2)),
         TestCase(flm(x * 32 + y, 64), flm(x, 2) * 32 + y, [y >= 0, y < 32]),
         TestCase(flm(x * 32 - y, 64), flm(x * 32 - y, 64), [y >= 0, y < 32]),
+        TestCase(flm(x * z * 2 + y, z * 2), flm(y, z * 2), z * 2 >= 0),
         # NOTE: the followng case is covered by canonical simplify
         # long range simplifcation in general can be covered by canonical simplify
         # TestCase(flm(x * 10 + 1 + y * 2 + 2, 2), 1),
@@ -809,6 +850,37 @@ class TestMaxIndex(BaseCompare):
         TestCase(tvm.te.max(fld(x, 4) * 4, x), x),
         TestCase(tvm.te.max(x, fld(x, 4) * 4), x),
     )
+
+
+class TestScalableIndex(BaseCompare):
+    x, y = te.var("x"), te.var("y")
+    test_case = tvm.testing.parameter(
+        # MinNode
+        TestCase(tvm.te.min(x + tir.vscale() * 4, x), x),
+        TestCase(tvm.te.min(x - tir.vscale() * 4, x), x + tir.vscale() * -4),
+        TestCase(tvm.te.min(x + tir.vscale() * 4, x + tir.vscale() * 8), tir.vscale() * 4 + x),
+        TestCase(tvm.te.min(x + tir.vscale() * 4 - flm(4, tir.vscale() * 4), x), x),
+        TestCase(tvm.te.min(tir.vscale() * x, tir.vscale() * y), tir.vscale() * x, x < y),
+        # MaxNode
+        TestCase(tvm.te.max(x + tir.vscale() * 4, x), x + tir.vscale() * 4),
+        TestCase(tvm.te.max(x - tir.vscale() * 4, x), x),
+        TestCase(tvm.te.max(x + tir.vscale() * 4, x + tir.vscale() * 4), x + tir.vscale() * 4),
+        TestCase(
+            tvm.te.max(x + tir.vscale() * 4 - flm(4, tir.vscale() * 4), x),
+            x + tir.vscale() * 4 - flm(4, tir.vscale() * 4),
+        ),
+        TestCase(tvm.te.max(tir.vscale() * x, tir.vscale() * y), tir.vscale() * x, x > y),
+        # FloorDiv
+        TestCase(fld(x * tir.vscale() * 4 + y, tir.vscale() * 4), x + fld(y, tir.vscale() * 4)),
+        TestCase(fld(x, tir.vscale() * 4), 0, [x >= 0, x < tir.vscale() * 4]),
+        # FloorMod
+        TestCase(flm(x * tir.vscale() * 4 + y, tir.vscale() * 4), flm(y, tir.vscale() * 4)),
+        TestCase(flm(x, tir.vscale() * 4), x, [x >= 0, x < tir.vscale() * 4]),
+    )
+
+    def test_simplify(self, test_case):
+        with tvm.target.Target("llvm -mtriple=aarch64-linux-gnu -mattr=+sve"):
+            super().test_simplify(test_case)
 
 
 class TestComparisons(BaseCompare):
@@ -1147,6 +1219,19 @@ class TestIfThenElse(BaseCompare):
             tvm.tir.if_then_else(x > 2, tvm.tir.if_then_else(x > 1, 1, 0), 0),
             tvm.tir.if_then_else(tvm.tir.LT(2, x), 1, 0),
         ),
+    )
+
+
+class TestCLZ(BaseCompare):
+    test_case = tvm.testing.parameter(
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", 0), 32),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", 1), 31),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", 2), 30),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", 128), 24),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", tvm.tir.IntImm("int64", 0)), 64),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", tvm.tir.IntImm("int64", 1)), 63),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", tvm.tir.IntImm("int64", 2)), 62),
+        TestCase(tvm.tir.call_intrin("int32", "tir.clz", tvm.tir.IntImm("int64", 128)), 56),
     )
 
 

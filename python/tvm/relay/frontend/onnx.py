@@ -307,6 +307,21 @@ def matmul_out_dtype(inputs, out_dtype):
             a = flatten_to_nd(inputs[0], a_shape, 2)
             b = _op.transpose(inputs[1])
             output = _op.nn.dense(a, b, out_dtype=out_dtype)
+        elif a_rank == 1 or b_rank == 1:
+            a, b = inputs
+            _a_shape = tuple(a_shape.data.numpy())
+            _b_shape = tuple(b_shape.data.numpy())
+            if a_rank == 1:
+                axis = -2
+                a = _op.expand_dims(a, axis=0)
+                batches = _b_shape[:-2]
+                a = _op.broadcast_to(a, (*batches, 1, _a_shape[0]))
+            else:
+                axis = -1
+                b = _op.expand_dims(b, axis=-1)
+                batches = _a_shape[:-2]
+                b = _op.broadcast_to(b, (*batches, _b_shape[0], 1))
+            return _op.squeeze(_op.nn.batch_matmul(a, b, transpose_b=False), axis=axis)
         else:
             a = inputs[0]
             b = inputs[1]
@@ -826,6 +841,15 @@ class Conv(OnnxOpConverter):
         return out
 
 
+def is_ort_version_greater_than(ver):
+    import onnxruntime as ort
+
+    v11, v12, v13 = tuple(int(v) for v in ort.__version__.split("."))
+    v21, v22, v23 = tuple(int(v) for v in ver.split("."))
+
+    return (v11 > v21) or (v11 == v21 and v12 > v22) or ((v11, v12) == (v21, v22) and v13 > v23)
+
+
 class ConvTranspose(OnnxOpConverter):
     """Operator converter for ConvTranspose."""
 
@@ -963,12 +987,15 @@ class ConvTranspose(OnnxOpConverter):
                         )
                 left = [p // 2 for p in total_pad]
                 right = [total_pad[i] - left[i] for i in range(kndim)]
+
                 if "output_shape" in attr and "auto_pad" not in attr:
                     pad = right + left
-                elif "LOWER" in attr["auto_pad"]:
-                    pad = left + right
-                else:
+                elif ("LOWER" in attr["auto_pad"] and is_ort_version_greater_than("1.12.1")) or (
+                    ("UPPER" in attr["auto_pad"] and not is_ort_version_greater_than("1.12.1"))
+                ):
                     pad = right + left
+                else:
+                    pad = left + right
                 attr["pads"] = pad
             elif attr["auto_pad"] == "VALID":
                 attr["pads"] = tuple([0 for i in range(ndim - 2)])
