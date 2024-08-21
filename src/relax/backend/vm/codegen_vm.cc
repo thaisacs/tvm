@@ -45,6 +45,7 @@ using namespace relax;
 using namespace tvm::runtime;
 using namespace tvm::runtime::relax_vm;
 
+namespace {
 // Helper function to get the function name of the registered packed function implementation of
 // relax operator.
 FCallPacked GetPackedFuncName(const Call& call) {
@@ -57,6 +58,7 @@ FCallPacked GetPackedFuncName(const Call& call) {
   }
   return {};
 }
+}  // namespace
 
 /*!
  * \brief A class to generate VM executable for Relax functions.
@@ -424,7 +426,7 @@ class CodeGenVM : public ExprFunctor<Instruction::Arg(const Expr&)> {
    */
   size_t registers_num_ = 0;
   /*! \brief Map from var to register number. */
-  std::unordered_map<Var, Instruction::Arg, ObjectPtrHash, ObjectPtrEqual> var_arg_map_;
+  std::unordered_map<Var, Instruction::Arg> var_arg_map_;
   /*! \brief the context module. */
   IRModule ctx_mod_;
   /*! \brief Cache ops that need to be frequently used later to reduce lookup overhead. */

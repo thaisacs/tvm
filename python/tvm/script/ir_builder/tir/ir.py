@@ -19,6 +19,7 @@
 import functools
 import inspect
 from numbers import Integral
+import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 # isort: off
@@ -1241,7 +1242,7 @@ def launch_thread(
     return _ffi_api.LaunchThread(thread, extent)  # type: ignore[attr-defined] # pylint: disable=no-member
 
 
-def env_thread(thread_tag: str) -> IterVar:
+def env_thread(thread_tag: str, dtype: str = "int32") -> IterVar:
     """Bind a var to thread env
 
     Parameters
@@ -1249,19 +1250,23 @@ def env_thread(thread_tag: str) -> IterVar:
     thread_tag : str
         The thread type tag.
 
+    dtype : str
+        The data type of the thread env.
+
     Returns
     -------
     res : IterVar
         The result iteration variable gets bound to the thread env.
 
     """
-    return _ffi_api.EnvThread(thread_tag)  # type: ignore[attr-defined] # pylint: disable=no-member
+    return _ffi_api.EnvThread(thread_tag, dtype)  # type: ignore[attr-defined] # pylint: disable=no-member
 
 
 def buffer_store(
     buffer: Buffer,  # pylint: disable=redefined-outer-name
     value: PrimExpr,
     indices: List[Union[PrimExpr, slice]],
+    predicate: Optional[PrimExpr] = None,
 ) -> None:
     """Buffer store node.
 
@@ -1275,6 +1280,11 @@ def buffer_store(
 
     indices : List[Union[PrimExpr, slice]]
         The indices location to be stored.
+
+    predicate : Optional[PrimExpr]
+        A vector mask of boolean values indicating which lanes of a vector are to be
+        stored. The number lanes of the mask must be equal to the number of lanes in
+        value.
     """
     from tvm.arith import Analyzer  # pylint: disable=import-outside-toplevel
 
@@ -1295,7 +1305,7 @@ def buffer_store(
     if isinstance(value, bool) and buffer.dtype == "bool":
         value = IntImm("bool", value)
     return _ffi_api.BufferStore(  # type: ignore[attr-defined] # pylint: disable=no-member
-        buffer, value, expr_indices
+        buffer, value, expr_indices, predicate
     )
 
 
@@ -1755,14 +1765,31 @@ class meta_var:  # pylint: disable=invalid-name
 # pylint: disable=invalid-name
 
 
-def _op_wrapper(func):
-    @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        if "dtype" in kwargs:
-            kwargs.pop("dtype")
-        return func(*args, **kwargs)
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec, TypeVar  # pylint: disable=import-error
 
-    return wrapped
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+    def _op_wrapper(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs) -> T:
+            if "dtype" in kwargs:
+                kwargs.pop("dtype")
+            return func(*args, **kwargs)
+
+        return wrapped
+
+else:
+
+    def _op_wrapper(func):
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            if "dtype" in kwargs:
+                kwargs.pop("dtype")
+            return func(*args, **kwargs)
+
+        return wrapped
 
 
 abs = _op_wrapper(_tir_op.abs)  # pylint: disable=redefined-builtin
@@ -1860,6 +1887,10 @@ ptx_init_barrier_thread_count = _op_wrapper(_tir_op.ptx_init_barrier_thread_coun
 ptx_arrive_barrier = _op_wrapper(_tir_op.ptx_arrive_barrier)
 ptx_arrive_barrier_expect_tx = _op_wrapper(_tir_op.ptx_arrive_barrier_expect_tx)
 ptx_wait_barrier = _op_wrapper(_tir_op.ptx_wait_barrier)
+make_filled_simdgroup_matrix = _op_wrapper(_tir_op.make_filled_simdgroup_matrix)
+simdgroup_load = _op_wrapper(_tir_op.simdgroup_load)
+simdgroup_store = _op_wrapper(_tir_op.simdgroup_store)
+simdgroup_multiply_accumulate = _op_wrapper(_tir_op.simdgroup_multiply_accumulate)
 create_barriers = _op_wrapper(_tir_op.create_barriers)
 assume = _op_wrapper(_tir_op.assume)
 undef = _op_wrapper(_tir_op.undef)
@@ -1900,6 +1931,8 @@ mma_fill = _dtype_forward(_tir_op.mma_fill)
 vectorlow = _dtype_forward(_tir_op.vectorlow)
 vectorhigh = _dtype_forward(_tir_op.vectorhigh)
 vectorcombine = _dtype_forward(_tir_op.vectorcombine)
+get_active_lane_mask = _dtype_forward(_tir_op.get_active_lane_mask)
+dp4a = _dtype_forward(_tir_op.dp4a)
 
 
 broadcast = Broadcast
@@ -2149,12 +2182,17 @@ __all__ = [
     "ptx_arrive_barrier",
     "ptx_arrive_barrier_expect_tx",
     "ptx_wait_barrier",
+    "make_filled_simdgroup_matrix",
+    "simdgroup_load",
+    "simdgroup_store",
+    "simdgroup_multiply_accumulate",
     "create_barriers",
     "mma_store",
     "mma_fill",
     "vectorlow",
     "vectorhigh",
     "vectorcombine",
+    "dp4a",
     "assume",
     "undef",
     "tvm_call_packed",
@@ -2216,4 +2254,5 @@ __all__ = [
     "CommReducer",
     "Range",
     "vscale",
+    "get_active_lane_mask",
 ]

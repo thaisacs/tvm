@@ -471,5 +471,44 @@ def test_reinterpret_nop():
     tvm.ir.assert_structural_equal(func, expected)
 
 
+def test_launch_thread_i64():
+    """Test launching thread with int64"""
+
+    @T.prim_func
+    def func() -> None:
+        blockIdx_x = T.launch_thread("blockIdx.x", T.int64(1))
+        if blockIdx_x == T.int64(0):
+            T.evaluate(T.int64(0))
+        else:
+            T.evaluate(T.int64(1))
+
+    assert func.body.node.dom.min.dtype == "int64"
+    assert func.body.node.dom.extent.dtype == "int64"
+
+
+def test_deterministic_branch():
+    """Test deterministic branch"""
+
+    def create_func(predicate: bool):
+        @T.prim_func(private=True)
+        def func() -> None:
+            if predicate:
+                T.evaluate(0)
+            else:
+                T.evaluate(1)
+
+        return func
+
+    def create_expected(value):
+        @T.prim_func(private=True)
+        def expected() -> None:
+            T.evaluate(value)
+
+        return expected
+
+    tvm.ir.assert_structural_equal(create_func(True), create_expected(0))
+    tvm.ir.assert_structural_equal(create_func(False), create_expected(1))
+
+
 if __name__ == "__main__":
     tvm.testing.main()

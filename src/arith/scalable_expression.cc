@@ -29,6 +29,7 @@
 
 #include <vector>
 
+#include "../tir/analysis/check_contains.h"
 #include "../tir/transforms/replace_selected_expr.h"
 #include "./pattern_match.h"
 
@@ -40,6 +41,10 @@ bool IsVScaleCall(const PrimExpr& expr) {
     return call->op.same_as(tir::builtin::vscale());
   }
   return false;
+}
+
+bool ContainsVscaleCall(const PrimExpr& expr) {
+  return tir::CheckContains::ExprContains(expr, IsVScaleCall);
 }
 
 PrimExpr SubstituteVScaleWithKnownValue(const PrimExpr& expr, unsigned int vscale_value) {
@@ -66,15 +71,8 @@ std::optional<int> ExtractVscaleFactor(const PrimExpr& lanes) {
   }
 }
 
-bool IsComparison(const PrimExpr& expr) {
-  return expr->IsInstance<tir::LENode>() || expr->IsInstance<tir::LTNode>() ||
-         expr->IsInstance<tir::GENode>() || expr->IsInstance<tir::GTNode>() ||
-         expr->IsInstance<tir::EQNode>() || expr->IsInstance<tir::NENode>();
-}
-
 bool CanProveVscaleExpressionFromKnownValues(arith::Analyzer* analyzer, const PrimExpr& expr,
                                              const std::vector<unsigned int>& vscale_values) {
-  ICHECK(IsComparison(expr)) << "Expected comparison but got: " << expr;
   bool can_prove_expr = true;
   for (const unsigned int vscale_value : vscale_values) {
     PrimExpr result = SubstituteVScaleWithKnownValue(expr, vscale_value);
@@ -88,8 +86,7 @@ bool CanProveVscaleExpressionFromKnownValues(arith::Analyzer* analyzer, const Pr
   return can_prove_expr;
 }
 
-bool TargetHasSVE() {
-  Target current_target = Target::Current();
+bool TargetHasSVE(Target current_target) {
   bool has_sve{false};
   if (current_target.defined()) {
     has_sve = current_target->GetFeature<Bool>("has_sve").value_or(Bool(false));
