@@ -29,8 +29,6 @@
 #include <tvm/runtime/registry.h>
 #include <tvm/support/parallel_for.h>
 
-#include "../../autokcache/load_states.h"
-
 #include <algorithm>
 #include <iomanip>
 #include <limits>
@@ -82,7 +80,7 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
   node->verbose = verbose;
   node->sample_init_min_pop_ =
       GetIntParam(node->params, SketchParamKey::SampleInitPopulation::min_population);
-
+  
   if (init_search_callbacks) {
     PrintTitle("Call init-search callbacks", verbose);
     // Candidates:
@@ -298,8 +296,9 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   }
 
   // 2. Sample the init population
-  //Array<State> init_population = SampleInitPopulation(sketch_cache_);
-  Array<State> init_population = tvm::autokcache::load_file(search_task);
+  Array<State> init_population = SampleInitPopulation(sketch_cache_);
+  //Array<State> init_population = auto_cache.LoadFromFile(search_task);
+  auto_cache.LoadFromFile(search_task);
 
   // 3. Perform evolutionary search.
   // Also insert already measured good states to the initial population

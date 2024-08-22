@@ -46,6 +46,8 @@
 #include "sketch_policy_rules.h"
 #include "utils.h"
 
+#include "../../auto_cache/auto_cache.h"
+
 namespace tvm {
 namespace auto_scheduler {
 
@@ -104,6 +106,8 @@ class SketchPolicyNode : public SearchPolicyNode {
   std::vector<SketchGenerationRule*> sketch_rules;
   /*! \brief The rules to generate initial population. */
   std::vector<PopulationGenerationRule*> init_rules;
+  /*! \brief The auto cache to generate better initial population. */
+  tvm::auto_cache::AutoCache auto_cache;
   /*! \brief The rules to mutate states in the evolutionary search. */
   std::vector<std::shared_ptr<PopulationMutationRule>> mutation_rules;
   /*! \brief Random generator. */
