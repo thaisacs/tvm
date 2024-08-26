@@ -153,6 +153,7 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
     LOG(FATAL) << "No default sketch rules for target: " << node->search_task->target;
   }
 
+  node->auto_cache.LoadFromFile(node->search_task);
   data_ = std::move(node);
 }
 
@@ -282,6 +283,7 @@ std::pair<Array<MeasureInput>, Array<MeasureResult>> SketchPolicyNode::ContinueS
 }
 
 Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State>* random_states) {
+  bool init_mode = 0;
   // Get parameters
   int population = GetIntParam(params, SketchParamKey::EvolutionarySearch::population);
   int num_use_measured = std::min(
@@ -296,9 +298,18 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   }
 
   // 2. Sample the init population
-  Array<State> init_population = SampleInitPopulation(sketch_cache_);
-  //Array<State> init_population = auto_cache.LoadFromFile(search_task);
-  auto_cache.LoadFromFile(search_task);
+  Array<State> init_population;
+  if(!init_mode) {
+    std::cout << "==> normal\n";
+    init_population = SampleInitPopulation(sketch_cache_);
+  }else {
+    std::cout << "==> not normal\n";
+    init_population = auto_cache.SampleInitPopulation();
+    if(!init_population.size()) {
+      init_population = SampleInitPopulation(sketch_cache_);
+      std::cout << "==> not normal 2\n";
+    }
+  }
 
   // 3. Perform evolutionary search.
   // Also insert already measured good states to the initial population
