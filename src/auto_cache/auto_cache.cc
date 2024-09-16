@@ -75,7 +75,10 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
 Array<tvm::auto_scheduler::State> AutoCache::SampleInitPopulation() {
   Array<tvm::auto_scheduler::State> measured_states;
   size_t cache_size = this->cache.size();
-  for (size_t i = cache_size-64; i < cache_size; i++) {
+  size_t value = 2050;
+  if(cache_size < value)
+    value = 0;
+  for (size_t i = cache_size-value; i < cache_size; i++) {
     measured_states.push_back(this->cache[i]);
   }
   return measured_states;
