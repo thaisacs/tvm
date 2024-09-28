@@ -47,9 +47,11 @@ namespace auto_cache {
 void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
   std::string file_path = __FILE__;
   std::string dir_path = file_path.substr(0, file_path.rfind("\\"));
-  std::string path = "/home/thais/Dev/tvm/src/auto_cache/cache/";
+  std::string path = "/home/thais.camacho/tvm/src/auto_cache/tvm-cache";
   std::string workload_key = search_task->workload_key;
   std::string hash = workload_key.substr(2, 32);
+  std::cout << hash << std::endl;
+  std::cout this->cache.size() << std::endl;
   for (const auto & entry : std::filesystem::directory_iterator(path)) {
     std::string log_file = entry.path();
     tvm::auto_scheduler::RecordReader reader = tvm::auto_scheduler::RecordReader(log_file);
@@ -70,6 +72,7 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
       }
     }
   }
+  std::cout this->cache.size() << std::endl;
 }
 
 Array<tvm::auto_scheduler::State> AutoCache::SampleInitPopulation() {
@@ -77,7 +80,7 @@ Array<tvm::auto_scheduler::State> AutoCache::SampleInitPopulation() {
   size_t cache_size = this->cache.size();
   size_t value = 2050;
   if(cache_size < value)
-    value = 0;
+    value = cache_size;
   for (size_t i = cache_size-value; i < cache_size; i++) {
     measured_states.push_back(this->cache[i]);
   }
