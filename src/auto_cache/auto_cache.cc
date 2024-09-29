@@ -16,6 +16,7 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
   std::string file_path = __FILE__;
   std::string dir_path = file_path.substr(0, file_path.rfind("\\"));
   std::string path = "/home/thais/Dev/tvm/src/auto_cache/tvm-cache/";
+  std::string path = "/home/thais.camacho/tvm/src/auto_cache/tvm-cache/";
   std::string workload_key = search_task->workload_key;
   std::string hash = workload_key.substr(2, 32);
   for (const auto & entry : std::filesystem::directory_iterator(path)) {
