@@ -18,7 +18,7 @@ namespace auto_cache {
 class AutoCache {
  public:
   /*! \brief The cache map for our auto cache. */
-  std::vector<tvm::auto_scheduler::State> cache;
+  std::vector<std::vector<tvm::auto_scheduler::State>> cache;
 
   /*!
    * \brief Sample the init population.
