@@ -375,6 +375,7 @@ class TIRPagedKVCache(PagedKVCache):  # pylint: disable=too-few-public-methods
             bb.add_func(_kv_cache_debug_get_kv(num_hidden_layers, num_key_value_heads, head_dim, dtype), "kv_cache_debug_get_kv"),
             bb.add_func(_compact_kv_copy(num_key_value_heads, head_dim, dtype, target), "kv_cache_compact_kv_copy"),
             bb.add_func(tree_attn(num_key_value_heads, num_attention_heads, head_dim, dtype, rope_scaling, target), "tir_attention_prefill_with_tree_mask"),
+            bb.add_func(tree_attn_with_paged_kv_cache(num_key_value_heads, num_attention_heads, head_dim, dtype, rope_scaling, target), "tir_attention_prefill_with_tree_mask_with_paged_kv_cache"),
             rope_ext_factors,
             # fmt: on
             # pylint: enable=line-too-long
@@ -1236,7 +1237,7 @@ def _merge_state_inplace(num_heads, head_dim, v_dtype, target: Target):
 
 
 def _attention_sequence_prefill(
-    batch_size, h_kv, h_q, d, dtype, target: Target, causal=0, attn_score_scaling_factor=1.0
+    h_kv, h_q, d, dtype, target: Target, causal=0, attn_score_scaling_factor=1.0
 ):  # pylint: disable=line-too-long
     LOAD_VEC = 8 // ((DataType(dtype).bits + 7) // 8)  # 8 bytes
     group_size = h_q // h_kv
@@ -1263,6 +1264,7 @@ def _attention_sequence_prefill(
         var_output: T.handle, # [total_len, h_q, d]
         var_lse: T.handle # [total_len, h_q]
     ):
+        batch_size = T.int32(is_size_var=True)
         qo_len = T.int32(is_size_var=True)
         kv_len = T.int32(is_size_var=True)
         q = T.match_buffer(var_q, (batch_size, qo_len, h_q, d), dtype)

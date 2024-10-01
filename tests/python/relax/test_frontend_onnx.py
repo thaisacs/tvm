@@ -76,6 +76,7 @@ def check_correctness(
     inputs: Optional[Dict[str, np.ndarray]] = None,
     ir_version: int = 8,
     opset: int = 14,
+    rtol: float = 1e-7,
     atol: float = 1e-5,
 ) -> None:
     """Run an onnx model in both onnxruntime and TVM through our importer
@@ -154,7 +155,7 @@ def check_correctness(
         # TODO Allow configurable tolerance.
         # Sometimes None is used to indicate an unused output.
         if ort_out is not None:
-            tvm.testing.assert_allclose(tvm_out.numpy(), ort_out, atol=atol)
+            tvm.testing.assert_allclose(tvm_out.numpy(), ort_out, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize(
@@ -1010,7 +1011,7 @@ def test_all_reduce_funcs(func, dynamic):
 
         inputs_dict = {"x": data}
         # Reduction ops accumulate arithmetic errors, so we use a higher tolerance.
-        check_correctness(model, inputs_dict, opset=11, atol=1e-4)
+        check_correctness(model, inputs_dict, opset=11, rtol=1e-4, atol=1e-4)
 
     for keepdims in [True, False]:
         verify_reduce_func(
@@ -1906,6 +1907,49 @@ def test_multi_inputs_with_same_symbolic_shape():
         outputs=[helper.make_tensor_value_info("output", TensorProto.FLOAT, ["batch", 2])],
     )
     model = helper.make_model(graph, producer_name="test_multi_symbolic_shape_input")
+    check_correctness(model)
+
+
+def test_multi_ops_with_same_params():
+    reshape_node_1 = helper.make_node("Reshape", ["a", "x"], ["b"])
+    reshape_node_2 = helper.make_node("Reshape", ["b", "x"], ["c"])
+
+    a_shape = [16]
+    output_shape = [1, 16]
+
+    graph = helper.make_graph(
+        [reshape_node_1, reshape_node_2],
+        "test_multi_ops_with_same_params",
+        inputs=[
+            helper.make_tensor_value_info("a", TensorProto.FLOAT, a_shape),
+        ],
+        initializer=[
+            helper.make_tensor("x", TensorProto.INT64, [2], output_shape),
+        ],
+        outputs=[helper.make_tensor_value_info("c", TensorProto.FLOAT, output_shape)],
+    )
+    model = helper.make_model(graph, producer_name="test_multi_ops_with_same_params")
+    check_correctness(model)
+
+
+def test_params_names_start_with_onnx():
+    reshape_node = helper.make_node("Reshape", ["a", "onnx::x"], ["b"])
+
+    a_shape = [16]
+    output_shape = [1, 16]
+
+    graph = helper.make_graph(
+        [reshape_node],
+        "test_params_names_start_with_onnx",
+        inputs=[
+            helper.make_tensor_value_info("a", TensorProto.FLOAT, a_shape),
+        ],
+        initializer=[
+            helper.make_tensor("onnx::x", TensorProto.INT64, [2], output_shape),
+        ],
+        outputs=[helper.make_tensor_value_info("b", TensorProto.FLOAT, output_shape)],
+    )
+    model = helper.make_model(graph, producer_name="test_params_names_start_with_onnx")
     check_correctness(model)
 
 
