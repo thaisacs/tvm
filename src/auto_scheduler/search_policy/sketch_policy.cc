@@ -80,7 +80,7 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
   node->verbose = verbose;
   node->sample_init_min_pop_ =
       GetIntParam(node->params, SketchParamKey::SampleInitPopulation::min_population);
-
+  
   if (init_search_callbacks) {
     PrintTitle("Call init-search callbacks", verbose);
     // Candidates:
@@ -153,6 +153,7 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
     LOG(FATAL) << "No default sketch rules for target: " << node->search_task->target;
   }
 
+  node->auto_cache.LoadFromFile(node->search_task);
   data_ = std::move(node);
 }
 
@@ -282,6 +283,7 @@ std::pair<Array<MeasureInput>, Array<MeasureResult>> SketchPolicyNode::ContinueS
 }
 
 Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State>* random_states) {
+  bool init_mode = 1;
   // Get parameters
   int population = GetIntParam(params, SketchParamKey::EvolutionarySearch::population);
   int num_use_measured = std::min(
@@ -296,7 +298,18 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   }
 
   // 2. Sample the init population
-  Array<State> init_population = SampleInitPopulation(sketch_cache_);
+  Array<State> init_population;
+  if(!init_mode) {
+    init_population = SampleInitPopulation(sketch_cache_);
+    std::cout << init_population.size() << std::endl;
+  }else {
+    std::cout << init_population.size() << std::endl;
+    init_population = auto_cache.SampleInitPopulation();
+    std::cout << init_population.size() << std::endl;
+    if(!init_population.size()) {
+      init_population = SampleInitPopulation(sketch_cache_);
+    }
+  }
 
   // 3. Perform evolutionary search.
   // Also insert already measured good states to the initial population
