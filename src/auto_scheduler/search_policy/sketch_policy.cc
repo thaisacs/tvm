@@ -301,11 +301,8 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   Array<State> init_population;
   if(!init_mode) {
     init_population = SampleInitPopulation(sketch_cache_);
-    std::cout << init_population.size() << std::endl;
   }else {
-    std::cout << init_population.size() << std::endl;
     init_population = auto_cache.SampleInitPopulation();
-    std::cout << init_population.size() << std::endl;
     if(!init_population.size()) {
       init_population = SampleInitPopulation(sketch_cache_);
     }
