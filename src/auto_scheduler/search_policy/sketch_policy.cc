@@ -153,7 +153,9 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
     LOG(FATAL) << "No default sketch rules for target: " << node->search_task->target;
   }
 
-  node->auto_cache.LoadFromFile(node->search_task);
+  std::string log_file = "/home/thais/Dev/tvm/src/auto_cache/params.yaml";
+  node->auto_cache = std::make_unique<tvm::auto_cache::AutoCache>(log_file);
+  node->auto_cache->LoadFromFile(node->search_task);
   data_ = std::move(node);
 }
 
@@ -302,7 +304,8 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   if(!init_mode) {
     init_population = SampleInitPopulation(sketch_cache_);
   }else {
-    init_population = auto_cache.SampleInitPopulation();
+    init_population = auto_cache->SampleInitPopulation();
+    std::cout << init_population.size() << std::endl;
     if(!init_population.size()) {
       init_population = SampleInitPopulation(sketch_cache_);
     }

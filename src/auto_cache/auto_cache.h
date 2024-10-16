@@ -1,5 +1,6 @@
-#ifndef TVM_AUTO_CACHE_H
-#define TVM_AUTO_CACHE_H
+#pragma once
+
+#include "params.h"
 
 #include <tvm/arith/analyzer.h>
 #include <tvm/auto_scheduler/auto_schedule.h>
@@ -16,12 +17,23 @@ namespace auto_cache {
  * \brief The auto cache that makes it more efficient.
  */
 class AutoCache {
- public:
+  /*!
+   * \brief The path of cache.
+   */
+  std::string path;
+
+  /*! \brief Total cache size. */
+  size_t total_cache_size;
+
   /*! \brief The cache map for our auto cache. */
   std::vector<std::vector<tvm::auto_scheduler::State>> cache;
 
+ public:
+  /*! \brief The AutoCache constructor. */
+  AutoCache(std::string log_file);
+
   /*!
-   * \brief Sample the init population.
+   * \brief Load population from ile.
    * \return The generated states (the initial population).
    */
   void LoadFromFile(tvm::auto_scheduler::SearchTask search_task);
@@ -31,11 +43,7 @@ class AutoCache {
    * \return The generated states (the initial population).
    */
   Array<tvm::auto_scheduler::State> SampleInitPopulation();
-
 };
-
 
 }  // namespace auto_cache
 }  // namespace tvm
-
-#endif
