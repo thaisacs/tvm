@@ -305,10 +305,13 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
     init_population = SampleInitPopulation(sketch_cache_);
   }else {
     init_population = auto_cache->SampleInitPopulation();
+    std::cout << "=======================" << std::endl;
+    std::cout << "real cache size: ";
     std::cout << init_population.size() << std::endl;
     if(!init_population.size()) {
       init_population = SampleInitPopulation(sketch_cache_);
     }
+    std::cout << "=======================" << std::endl;
   }
 
   // 3. Perform evolutionary search.

@@ -73,6 +73,13 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
       this->cache.push_back(std::move(task_cache));
     }
   }
+  std::cout << "=======================" << std::endl;
+  std::cout << "cache size: ";
+  std::cout << this->cache.size() << std::endl;
+  for(unsigned i = 0; i < this->cache.size(); i++) {
+    std::cout << this->cache[i].size() << std::endl;
+  }
+  std::cout << "=======================" << std::endl;
 }
 
 Array<tvm::auto_scheduler::State> AutoCache::SampleInitPopulation() {
