@@ -74,6 +74,8 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
     }
   }
   std::cout << "=======================" << std::endl;
+  std::cout << "myhash: ";
+  std::cout << hash << std::endl;
   std::cout << "cache size: ";
   std::cout << this->cache.size() << std::endl;
   for(unsigned i = 0; i < this->cache.size(); i++) {
@@ -93,6 +95,10 @@ Array<tvm::auto_scheduler::State> AutoCache::SampleInitPopulation() {
       measured_states.push_back(this->cache[idx][i]);
     }
   }
+  std::cout << "=======================" << std::endl;
+  std::cout << "real cache size: ";
+  std::cout << measured_states.size() << std::endl;
+  std::cout << "=======================" << std::endl;
   return measured_states;
 }
 
