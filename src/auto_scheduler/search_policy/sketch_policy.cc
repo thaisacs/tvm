@@ -153,9 +153,15 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
     LOG(FATAL) << "No default sketch rules for target: " << node->search_task->target;
   }
 
-  std::string log_file = "/home/thais/Dev/tvm/src/auto_cache/params.yaml";
-  node->auto_cache = std::make_unique<tvm::auto_cache::AutoCache>(log_file);
-  node->auto_cache->LoadFromFile(node->search_task);
+  // Auto cache
+  bool subgraph_cache = false;
+  if(subgraph_cache){
+    std::string log_file = "/home/thais/Dev/tvm/src/auto_cache/params.yaml";
+    node->auto_cache = std::make_unique<tvm::auto_cache::AutoCache>(log_file);
+    node->auto_cache->LoadFromFile(node->search_task);
+  }else {
+    node->auto_cache = nullptr;
+  }
   data_ = std::move(node);
 }
 
@@ -285,7 +291,6 @@ std::pair<Array<MeasureInput>, Array<MeasureResult>> SketchPolicyNode::ContinueS
 }
 
 Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State>* random_states) {
-  bool init_mode = 1;
   // Get parameters
   int population = GetIntParam(params, SketchParamKey::EvolutionarySearch::population);
   int num_use_measured = std::min(
@@ -300,20 +305,18 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   }
 
   // 2. Sample the init population
+  bool subgraph_cache = false;
   Array<State> init_population;
-  if(!init_mode) {
-    init_population = SampleInitPopulation(sketch_cache_);
-  }else {
+  // Auto cache
+  if(subgraph_cache) {
     init_population = auto_cache->SampleInitPopulation();
-    std::cout << "=======================" << std::endl;
-    std::cout << "real cache size: ";
     std::cout << init_population.size() << std::endl;
     if(!init_population.size()) {
       init_population = SampleInitPopulation(sketch_cache_);
     }
-    std::cout << "real cache size after init: ";
     std::cout << init_population.size() << std::endl;
-    std::cout << "=======================" << std::endl;
+  }else {
+      init_population = SampleInitPopulation(sketch_cache_);
   }
 
   // 3. Perform evolutionary search.

@@ -26,11 +26,11 @@ class AutoCache {
   size_t total_cache_size;
 
   /*! \brief The cache map for our auto cache. */
-  std::vector<std::vector<tvm::auto_scheduler::State>> cache;
+  std::vector<tvm::auto_scheduler::State> cache;
 
  public:
   /*! \brief The AutoCache constructor. */
-  AutoCache(std::string log_file);
+  AutoCache(std::string params_file);
 
   /*!
    * \brief Load population from ile.
