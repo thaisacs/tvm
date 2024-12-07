@@ -48,6 +48,7 @@ def make_search_policies(
     load_model_file=None,
     load_log_file=None,
     adaptive_training=False,
+    subgraph_cache="",
 ):
     """Make a list of search policies for a list of search tasks.
     It creates one policy per task.
@@ -115,6 +116,7 @@ def make_search_policies(
                     params=search_policy_params,
                     verbose=verbose,
                     init_search_callbacks=init_search_callbacks,
+                    subgraph_cache=subgraph_cache,
                 )
                 for task in tasks
             ]
@@ -285,6 +287,7 @@ class TaskScheduler:
         search_policy_params=None,
         adaptive_training=False,
         per_task_early_stopping=None,
+        subgraph_cache="",
     ):
         """Tune a batch of tasks together.
 
@@ -348,13 +351,14 @@ class TaskScheduler:
             self.load_model_file,
             self.load_log_file,
             adaptive_training,
+            subgraph_cache,
         )
 
         # do a round robin first to warm up
         for idx in range(len(self.tasks)):
             # skip warming up this task if it has been tuned before (restored from the log file)
             if not self.task_cts[idx]:
-                self._tune_task(idx)
+                self._tune_task(idx, subgraph_cache)
         self.best_ct = self.ct
         self.best_score = self.cur_score
 
@@ -431,7 +435,7 @@ class TaskScheduler:
             else:
                 raise ValueError("Invalid strategy: " + self.strategy)
 
-            self._tune_task(task_idx)
+            self._tune_task(task_idx, subgraph_cache)
             self._adjust_similarity_group(task_idx)
 
             if self.cur_score < self.best_score:
@@ -448,7 +452,7 @@ class TaskScheduler:
                     )
                 break
 
-    def _tune_task(self, task_idx):
+    def _tune_task(self, task_idx, subgraph_cache):
         """Tune the select task for one round"""
 
         # Run pre-tune callbacks
@@ -456,7 +460,7 @@ class TaskScheduler:
             callback.pre_tune(self, task_idx)
 
         measure_inputs, measure_results = self.search_policies[task_idx].continue_search_one_round(
-            self.num_measures_per_round, self.measurer
+            self.num_measures_per_round, self.measurer, subgraph_cache
         )
 
         self.task_cts[task_idx] += 1

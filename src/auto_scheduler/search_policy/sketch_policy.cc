@@ -71,7 +71,7 @@ TVM_REGISTER_NODE_TYPE(SketchPolicyNode);
 
 SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
                            Map<String, ObjectRef> params, int seed, int verbose,
-                           Optional<Array<SearchCallback>> init_search_callbacks) {
+                           Optional<Array<SearchCallback>> init_search_callbacks, std::string subgraph_cache) {
   auto node = make_object<SketchPolicyNode>();
   node->search_task = std::move(task);
   node->program_cost_model = std::move(program_cost_model);
@@ -154,10 +154,8 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
   }
 
   // Auto cache
-  bool subgraph_cache = false;
-  if(subgraph_cache){
-    std::string log_file = "/home/thais/Dev/tvm/src/auto_cache/params.yaml";
-    node->auto_cache = std::make_unique<tvm::auto_cache::AutoCache>(log_file);
+  if(subgraph_cache.size()){
+    node->auto_cache = std::make_unique<tvm::auto_cache::AutoCache>(subgraph_cache);
     node->auto_cache->LoadFromFile(node->search_task);
   }else {
     node->auto_cache = nullptr;
@@ -249,7 +247,7 @@ State SketchPolicyNode::Search(int n_trials, int early_stopping, int num_measure
 }
 
 std::pair<Array<MeasureInput>, Array<MeasureResult>> SketchPolicyNode::ContinueSearchOneRound(
-    int num_measure, ProgramMeasurer measurer) {
+    int num_measure, ProgramMeasurer measurer, std::string subgraph_cache) {
   num_measure_per_iter_ = num_measure;
 
   Array<State> best_states, random_states;
@@ -259,7 +257,7 @@ std::pair<Array<MeasureInput>, Array<MeasureResult>> SketchPolicyNode::ContinueS
 
   // Search one round to get promising states
   PrintTitle("Search", verbose);
-  best_states = SearchOneRound(num_random * 3, &random_states);
+  best_states = SearchOneRound(num_random * 3, &random_states, subgraph_cache);
 
   // Infer bound. This is necessary for computing the correct ToStr() for redundancy check
   best_states = search_task->compute_dag.InferBound(best_states);
@@ -290,7 +288,7 @@ std::pair<Array<MeasureInput>, Array<MeasureResult>> SketchPolicyNode::ContinueS
   return std::make_pair(std::move(inputs), std::move(results));
 }
 
-Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State>* random_states) {
+Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State>* random_states, std::string subgraph_cache) {
   // Get parameters
   int population = GetIntParam(params, SketchParamKey::EvolutionarySearch::population);
   int num_use_measured = std::min(
@@ -305,10 +303,9 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   }
 
   // 2. Sample the init population
-  bool subgraph_cache = false;
   Array<State> init_population;
   // Auto cache
-  if(subgraph_cache) {
+  if(subgraph_cache.size()) {
     init_population = auto_cache->SampleInitPopulation();
     std::cout << init_population.size() << std::endl;
     if(!init_population.size()) {
@@ -715,8 +712,8 @@ void PreloadCustomSketchRuleNode::Callback(SearchPolicyNode* policy) {
 TVM_REGISTER_GLOBAL("auto_scheduler.SketchPolicy")
     .set_body_typed([](SearchTask task, CostModel program_cost_model, Map<String, ObjectRef> params,
                        int seed, int verbose,
-                       Optional<Array<SearchCallback>> init_search_callbacks) {
-      return SketchPolicy(task, program_cost_model, params, seed, verbose, init_search_callbacks);
+                       Optional<Array<SearchCallback>> init_search_callbacks, std::string subgraph_cache) {
+      return SketchPolicy(task, program_cost_model, params, seed, verbose, init_search_callbacks, subgraph_cache);
     });
 
 TVM_REGISTER_GLOBAL("auto_scheduler.SketchPolicyGenerateSketches")

@@ -98,7 +98,7 @@ class PreloadCustomSketchRule(SearchCallback):
 class SearchPolicy(Object):
     """The base class of search policies."""
 
-    def continue_search_one_round(self, num_measure, measurer):
+    def continue_search_one_round(self, num_measure, measurer, subgraph_cache):
         """
         Continue the search by doing an additional search round.
 
@@ -116,7 +116,7 @@ class SearchPolicy(Object):
         results: List[MeasureResult]
             The results of measurments in this search round
         """
-        return _ffi_api.SearchPolicyContinueSearchOneRound(self, num_measure, measurer)
+        return _ffi_api.SearchPolicyContinueSearchOneRound(self, num_measure, measurer, subgraph_cache)
 
     def set_verbose(self, verbose):
         """
@@ -201,6 +201,7 @@ class SketchPolicy(SearchPolicy):
         seed=None,
         verbose=1,
         init_search_callbacks=None,
+        subgraph_cache="",
     ):
         if params is None:
             params = SketchPolicy.DEFAULT_PARAMS
@@ -217,6 +218,7 @@ class SketchPolicy(SearchPolicy):
             seed or random.randint(1, 1 << 30),
             verbose,
             init_search_callbacks,
+            subgraph_cache,
         )
 
     def generate_sketches(self, print_for_debug=False):

@@ -160,7 +160,7 @@ class SearchPolicyNode : public Object {
    * \return The measurement records for measurements in this search round
    */
   virtual std::pair<Array<MeasureInput>, Array<MeasureResult>> ContinueSearchOneRound(
-      int num_measure, ProgramMeasurer measurer) = 0;
+      int num_measure, ProgramMeasurer measurer, std::string subgraph_cache) = 0;
 
   /*!
    * \brief Preload measured states from a log file to resume the state of the search policy.

@@ -47,7 +47,7 @@ class EmptyPolicyNode : public SearchPolicyNode {
                ProgramMeasurer measurer) final;
 
   std::pair<Array<MeasureInput>, Array<MeasureResult>> ContinueSearchOneRound(
-      int num_measure, ProgramMeasurer measurer) final;
+      int num_measure, ProgramMeasurer measurer, std::string subgraph_cache) final;
 
   static constexpr const char* _type_key = "auto_scheduler.EmptyPolicy";
   TVM_DECLARE_FINAL_OBJECT_INFO(EmptyPolicyNode, SearchPolicyNode);

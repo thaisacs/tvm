@@ -87,7 +87,7 @@ State EmptyPolicyNode::Search(int num_measure_trials, int early_stopping,
 }
 
 std::pair<Array<MeasureInput>, Array<MeasureResult>> EmptyPolicyNode::ContinueSearchOneRound(
-    int num_measure, ProgramMeasurer measurer) {
+    int num_measure, ProgramMeasurer measurer, std::string subgraph_cache) {
   Array<State> best_states;
   Array<MeasureInput> inputs;
   Array<MeasureResult> results;

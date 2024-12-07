@@ -119,7 +119,7 @@ class SketchPolicyNode : public SearchPolicyNode {
                ProgramMeasurer measurer) final;
 
   std::pair<Array<MeasureInput>, Array<MeasureResult>> ContinueSearchOneRound(
-      int num_measure, ProgramMeasurer measurer) final;
+      int num_measure, ProgramMeasurer measurer, std::string subgraph_cache) final;
 
   /*!
    * \brief Generate sketches.
@@ -154,7 +154,7 @@ class SketchPolicyNode : public SearchPolicyNode {
    * \param random_states The picked random states, used as one of the output of this function.
    * \return The best several states generated in this search round.
    */
-  Array<State> SearchOneRound(int num_random_states, Array<State>* random_states = nullptr);
+  Array<State> SearchOneRound(int num_random_states, Array<State>* random_states = nullptr, std::string subgraph_cache = "");
 
   /*!
    * \brief Pick states from best states and random states with eps-greedy policy.
@@ -196,7 +196,7 @@ class SketchPolicy : public SearchPolicy {
    * \param init_search_callbacks SearchCallback to be called before schedule search.
    */
   SketchPolicy(SearchTask task, CostModel program_cost_model, Map<String, ObjectRef> params,
-               int seed, int verbose, Optional<Array<SearchCallback>> init_search_callbacks);
+               int seed, int verbose, Optional<Array<SearchCallback>> init_search_callbacks, std::string subgraph_cache);
 
   TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(SketchPolicy, SearchPolicy, SketchPolicyNode);
 };
