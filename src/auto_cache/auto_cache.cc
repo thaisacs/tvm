@@ -17,9 +17,6 @@ namespace auto_cache {
 
 AutoCache::AutoCache(std::string params_file) {
   Params params = read_params_file(params_file);
-  //auto InputPBuffer = llvm::MemoryBuffer::getFile(log_file);
-  //llvm::yaml::Input yinp(InputPBuffer->get()->getBuffer());
-  //yinp >> params;
   this->path = params.path;
   this->total_cache_size = params.total_cache_size;
 }
