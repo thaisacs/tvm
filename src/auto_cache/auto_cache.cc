@@ -33,6 +33,9 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
 
   for(unsigned i = 0; i < data.size; i++) {
     std::string log_file = this->path + data.files[i];
+    if(!std::filesystem::exists(log_file)) {
+      continue;
+    }
     TaskData cache_data = read_log_file(log_file);
 
     size_t value_ = value;

@@ -40,6 +40,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <filesystem>
 
 #include "sketch_policy_rules.h"
 
@@ -154,7 +155,7 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
   }
 
   // Auto cache
-  if(subgraph_cache.size()){
+  if(std::filesystem::exists(subgraph_cache)){
     node->auto_cache = std::make_unique<tvm::auto_cache::AutoCache>(subgraph_cache);
     node->auto_cache->LoadFromFile(node->search_task);
   }else {
@@ -305,7 +306,7 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   // 2. Sample the init population
   Array<State> init_population;
   // Auto cache
-  if(subgraph_cache.size()) {
+  if(std::filesystem::exists(subgraph_cache)){
     init_population = auto_cache->SampleInitPopulation();
     if(!init_population.size()) {
       init_population = SampleInitPopulation(sketch_cache_);
