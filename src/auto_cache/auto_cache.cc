@@ -5,6 +5,7 @@
 
 #include <tvm/auto_scheduler/measure_record.h>
 #include <tvm/auto_scheduler/search_policy.h>
+#include <tvm/auto_scheduler/transform_step.h>
 #include <tvm/runtime/registry.h>
 
 #include <fstream>
