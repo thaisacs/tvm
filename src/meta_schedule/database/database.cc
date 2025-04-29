@@ -176,9 +176,10 @@ DatabaseNode::~DatabaseNode() = default;
 
 Optional<TuningRecord> DatabaseNode::QueryTuningRecord(const IRModule& mod, const Target& target,
                                                        const String& workload_name) {
-  if (!this->HasWorkload(mod)) {
-    return NullOpt;
-  }
+  std::cout << "passou...\n";
+  //if (!this->HasWorkload(mod)) {
+  //  return NullOpt;
+  //}
   Array<TuningRecord> records = this->GetTopK(this->CommitWorkload(mod), 1);
   if (records.empty()) {
     return NullOpt;

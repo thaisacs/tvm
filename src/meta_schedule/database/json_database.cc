@@ -127,17 +127,19 @@ class JSONDatabaseNode : public DatabaseNode {
     Array<TuningRecord> results;
     results.reserve(top_k);
     for (const TuningRecord& record : this->tuning_records_) {
+      std::cout << record << "\n";
       auto run_secs = record->run_secs;
       if (!record->IsValid()) {
         continue;
       }
-      if (record->workload.same_as(workload) ||
+      std::cout << "passou...\n";
+      //if (record->workload.same_as(workload) ||
           WorkloadEqual(GetModuleEquality())(record->workload, workload)) {
         results.push_back(record);
         if (results.size() == static_cast<size_t>(top_k)) {
           break;
         }
-      }
+      //}
     }
     return results;
   }
