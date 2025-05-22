@@ -34,6 +34,8 @@
 #include <string>
 #include <vector>
 
+#include "../../src/auto_cache/auto_cache.h"
+
 namespace tvm {
 namespace meta_schedule {
 
@@ -59,6 +61,8 @@ class TaskRecordNode : public runtime::Object {
   Optional<Array<BuilderResult>> builder_results = std::nullopt;
   /*! \brief Packed functions to fetch the runner results asynchronously. */
   Optional<Array<RunnerFuture>> runner_futures = std::nullopt;
+  /*! \brief The auto cache to generate better initial population. */
+  std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm> tgc;
 
   void VisitAttrs(tvm::AttrVisitor* v) {
     v->Visit("ctx", &ctx);

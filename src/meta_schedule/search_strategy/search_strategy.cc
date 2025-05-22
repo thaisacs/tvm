@@ -18,6 +18,8 @@
  */
 #include "../utils.h"
 
+#include "../../auto_cache/auto_cache.h"
+
 namespace tvm {
 namespace meta_schedule {
 
@@ -51,6 +53,9 @@ Optional<Array<MeasureCandidate>> PySearchStrategyNode::GenerateMeasureCandidate
   ICHECK(f_generate_measure_candidates != nullptr)
       << "PySearchStrategy's GenerateMeasureCandidates method not implemented!";
   return f_generate_measure_candidates();
+}
+
+Optional<Array<MeasureCandidate>> PySearchStrategyNode::GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc) {
 }
 
 void PySearchStrategyNode::NotifyRunnerResults(const Array<MeasureCandidate>& measure_candidates,

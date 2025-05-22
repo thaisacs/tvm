@@ -142,6 +142,26 @@ class JSONDatabaseNode : public DatabaseNode {
     return results;
   }
 
+  Array<TuningRecord> GetTopKForTGC(const Workload& workload, int top_k) {
+    CHECK_GE(top_k, 0) << "ValueError: top_k must be non-negative";
+    if (top_k == 0) {
+      return {};
+    }
+    Array<TuningRecord> results;
+    results.reserve(top_k);
+    for (const TuningRecord& record : this->tuning_records_) {
+      auto run_secs = record->run_secs;
+      if (!record->IsValid()) {
+        continue;
+      }
+      results.push_back(record);
+      if (results.size() == static_cast<size_t>(top_k)) {
+        break;
+      }
+    }
+    return results;
+  }
+
   Array<TuningRecord> GetAllTuningRecords() {
     Array<TuningRecord> results;
     results.reserve(Size());

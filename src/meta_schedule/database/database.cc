@@ -187,6 +187,12 @@ Optional<TuningRecord> DatabaseNode::QueryTuningRecord(const IRModule& mod, cons
   return records[0];
 }
 
+Array<TuningRecord> DatabaseNode::QueryTuningRecordForTGC(const IRModule& mod, const Target& target,
+                                                       const String& workload_name, int k) {
+  Array<TuningRecord> records = this->GetTopKForTGC(this->CommitWorkload(mod), k);
+  return records;
+}
+
 Optional<tir::Schedule> DatabaseNode::QuerySchedule(const IRModule& mod, const Target& target,
                                                     const String& workload_name) {
   if (Optional<TuningRecord> opt_record = this->QueryTuningRecord(mod, target, workload_name)) {

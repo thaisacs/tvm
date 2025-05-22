@@ -84,6 +84,11 @@ class MemoryDatabaseNode : public DatabaseNode {
     }
   }
 
+  Array<TuningRecord> GetTopKForTGC(const Workload& workload, int top_k) final {
+    LOG(FATAL) << "NotImplementedError: MemoryDatabase.GetTopKForTGC";
+    throw;
+  }
+
   Array<TuningRecord> GetAllTuningRecords() final { return records; }
 
   int64_t Size() final { return records.size(); }

@@ -31,6 +31,8 @@
 #include <tvm/runtime/packed_func.h>
 #include <tvm/tir/schedule/schedule.h>
 
+#include "../../../src/auto_cache/auto_cache.h"
+
 namespace tvm {
 namespace meta_schedule {
 
@@ -114,6 +116,13 @@ class SearchStrategyNode : public runtime::Object {
    * \return The measure candidates generated, nullptr if finished.
    */
   virtual Optional<Array<MeasureCandidate>> GenerateMeasureCandidates() = 0;
+
+  /*!
+   * \brief Generate measure candidates from design spaces for measurement using TGC.
+   * \return The measure candidates generated, nullptr if finished.
+   */
+  virtual Optional<Array<MeasureCandidate>> GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc) = 0;
+
 
   /*!
    * \brief Update the search strategy with measurement results.
@@ -255,6 +264,7 @@ class PySearchStrategyNode : public SearchStrategyNode {
                  const Optional<Database>& database, const Optional<CostModel>& cost_model) final;
   void PostTuning() final;
   Optional<Array<MeasureCandidate>> GenerateMeasureCandidates() final;
+  Optional<Array<MeasureCandidate>> GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc) final;
   void NotifyRunnerResults(const Array<MeasureCandidate>& measure_candidates,
                            const Array<RunnerResult>& results);
   SearchStrategy Clone() const final;

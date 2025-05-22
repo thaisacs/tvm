@@ -20,6 +20,8 @@
 #include "../module_equality.h"
 #include "../utils.h"
 
+#include "../../auto_cache/auto_cache.h"
+
 #define TVM_META_SCHEDULE_CHECK_PROB_RANGE(p, name)                               \
   CHECK(0.0 <= (p) && (p) <= 1.0) << "ValueError: name should be within [0, 1], " \
                                   << "but get `" << #p << " = " << (p) << '\'';
@@ -339,6 +341,8 @@ class EvolutionarySearchNode : public SearchStrategyNode {
      * \return The calculated hash.
      */
     inline size_t ModuleHash(const IRModule& mod) const;
+
+    inline Optional<Array<MeasureCandidate>> GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc);
   };
 
   /*! \brief The tuning context of the evolutionary search strategy. */
@@ -445,6 +449,11 @@ class EvolutionarySearchNode : public SearchStrategyNode {
   Optional<Array<MeasureCandidate>> GenerateMeasureCandidates() final {
     ICHECK(this->state_ != nullptr);
     return this->state_->GenerateMeasureCandidates();
+  }
+
+  Optional<Array<MeasureCandidate>> GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc) final {
+    ICHECK(this->state_ != nullptr);
+    return this->state_->GenerateMeasureCandidatesWithTGC(tgc);
   }
 
   void NotifyRunnerResults(const Array<MeasureCandidate>& measure_candidates,
@@ -694,6 +703,51 @@ std::vector<Schedule> EvolutionarySearchNode::State::PickWithEpsGreedy(
     }
   }
   return results;
+}
+
+Optional<Array<MeasureCandidate>> EvolutionarySearchNode::State::GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc) {
+  if (st >= max_trials) {
+    return std::nullopt;
+  }
+  int sample_num = num_trials_per_iter;
+  if (ed > max_trials) {
+    sample_num = max_trials - st;
+    ed = max_trials;
+  }
+  ICHECK_LT(st, ed);
+  int pop = self->population_size;
+  std::vector<Schedule> inits;
+  inits.reserve(pop);
+
+  TVM_PY_LOG(INFO, self->ctx_->logger) << "Generating candidates......";
+  std::vector<Schedule> measured = PickBestFromDatabase(pop * self->init_measured_ratio);
+  TVM_PY_LOG(INFO, self->ctx_->logger)
+      << "Picked top " << measured.size() << " candidate(s) from database";
+  std::vector<Schedule> unmeasured = tgc->SampleInitPopulation(pop - measured.size());
+  if(!unmeasured.size()) {
+    unmeasured = SampleInitPopulation(pop - measured.size());
+  }
+  if (static_cast<int>(unmeasured.size()) < self->init_min_unmeasured) {
+    TVM_PY_LOG(WARNING, self->ctx_->logger)
+        << "Cannot sample enough initial population, evolutionary search failed.";
+    return std::nullopt;
+  }
+  TVM_PY_LOG(INFO, self->ctx_->logger) << "Sampled " << unmeasured.size() << " candidate(s)";
+  inits.insert(inits.end(), measured.begin(), measured.end());
+  inits.insert(inits.end(), unmeasured.begin(), unmeasured.end());
+  std::vector<Schedule> bests = EvolveWithCostModel(inits, sample_num);
+  TVM_PY_LOG(INFO, self->ctx_->logger)
+      << "Got " << bests.size() << " candidate(s) with evolutionary search";
+  std::vector<Schedule> picks = PickWithEpsGreedy(unmeasured, bests, sample_num);
+  TVM_PY_LOG(INFO, self->ctx_->logger)
+      << "Sending " << picks.size() << " candidates(s) for measurement";
+  if (picks.empty()) {
+    ++this->num_empty_iters;
+    if (this->num_empty_iters >= self->num_empty_iters_before_early_stop) {
+      return std::nullopt;
+    }
+  }
+  return AssembleCandidates(picks);
 }
 
 Optional<Array<MeasureCandidate>> EvolutionarySearchNode::State::GenerateMeasureCandidates() {

@@ -18,6 +18,8 @@
  */
 #include "../utils.h"
 
+#include "../../auto_cache/auto_cache.h"
+
 namespace tvm {
 namespace meta_schedule {
 
@@ -35,6 +37,8 @@ TaskRecord::TaskRecord(TuneContext ctx, double task_weight) {
   TVM_PY_LOG(INFO, ctx->logger) << "\n" << ctx->mod;
   ctx->Initialize();
   n->flop = std::max(1.0, tir::EstimateTIRFlops(ctx->mod.value()));
+  n->tgc = std::make_unique<tvm::auto_cache::TaskGraphCachingAlgorithm>("/home/thais/Dev/tvm/src/auto_cache/params.yml");
+  n->tgc->LoadFromFile(ctx->mod, ctx->task_name.value());
   this->data_ = std::move(n);
 }
 
@@ -186,8 +190,14 @@ void TaskSchedulerNode::Tune(Array<TuneContext> ctxs, Array<FloatImm> task_weigh
       TerminateTask(task_id);
       continue;
     }
-    if (Optional<Array<MeasureCandidate>> candidates = task->measure_candidates =
-            task->ctx->search_strategy.value()->GenerateMeasureCandidates()) {
+    bool auto_cache = true;
+    Optional<Array<MeasureCandidate>> candidates;
+    if(auto_cache) {
+      candidates = task->measure_candidates = task->ctx->search_strategy.value()->GenerateMeasureCandidatesWithTGC(task->tgc);
+    }else {
+      candidates = task->measure_candidates = task->ctx->search_strategy.value()->GenerateMeasureCandidates();
+    }
+    if (candidates = task->measure_candidates) {
       int num_candidates = candidates.value().size();
       num_trials_already += num_candidates;
       TVM_PY_LOG(INFO, this->logger) << "Sending " << num_candidates << " sample(s) to builder";

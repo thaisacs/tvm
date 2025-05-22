@@ -18,6 +18,8 @@
  */
 #include "../utils.h"
 
+#include "../../src/auto_cache/auto_cache.h"
+
 namespace tvm {
 namespace meta_schedule {
 
@@ -97,6 +99,9 @@ class ReplayFuncNode : public SearchStrategyNode {
   Optional<Array<MeasureCandidate>> GenerateMeasureCandidates() final {
     ICHECK(this->state_ != nullptr);
     return this->state_->GenerateMeasureCandidates();
+  }
+
+  Optional<Array<MeasureCandidate>> GenerateMeasureCandidatesWithTGC(std::unique_ptr<tvm::auto_cache::TaskGraphCachingAlgorithm>& tgc) final {
   }
 
   void NotifyRunnerResults(const Array<MeasureCandidate>& measure_candidates,

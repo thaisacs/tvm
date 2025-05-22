@@ -64,6 +64,11 @@ class UnionDatabaseNode : public DatabaseNode {
     throw;
   }
 
+  Array<TuningRecord> GetTopKForTGC(const Workload& workload, int top_k) final {
+    LOG(FATAL) << "NotImplementedError: UnionDatabase.GetTopKForTGC";
+    throw;
+  }
+
   Array<TuningRecord> GetAllTuningRecords() final {
     LOG(FATAL) << "NotImplementedError: UnionDatabase.GetAllTuningRecords";
     throw;

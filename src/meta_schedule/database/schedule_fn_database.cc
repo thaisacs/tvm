@@ -80,6 +80,11 @@ class ScheduleFnDatabaseNode : public DatabaseNode {
     throw;
   }
 
+  Array<TuningRecord> GetTopKForTGC(const Workload& workload, int top_k) final {
+    LOG(FATAL) << "NotImplementedError: ScheduleFnDatabase.GetTopKForTGC";
+    throw;
+  }
+
   Array<TuningRecord> GetAllTuningRecords() final {
     LOG(FATAL) << "NotImplementedError: ScheduleFnDatabase.GetAllTuningRecords";
     throw;

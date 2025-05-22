@@ -224,6 +224,13 @@ class DatabaseNode : public runtime::Object {
    */
   virtual Array<TuningRecord> GetTopK(const Workload& workload, int top_k) = 0;
   /*!
+   * \brief Get the top K valid tuning records of given workload from the database.
+   * \param workload The workload to be searched for.
+   * \param top_k The number of top records to be returned.
+   * \return An array of top K tuning records for the given workload.
+   */
+  virtual Array<TuningRecord> GetTopKForTGC(const Workload& workload, int top_k) = 0;
+  /*!
    * \brief Get all tuning records from the database.
    * \return An Array of all the tuning records in the database.
    */
@@ -242,6 +249,15 @@ class DatabaseNode : public runtime::Object {
    */
   virtual Optional<TuningRecord> QueryTuningRecord(const IRModule& mod, const Target& target,
                                                    const String& workload_name);
+  /*!
+   * \brief Query the best record of the given workload from the database.
+   * \param mod The IRModule to be searched for.
+   * \param target The target to be searched for.
+   * \param workload_name The name of the workload to be searched for.
+   * \return The best record of the given workload; std::nullopt if not found.
+   */
+  virtual Array<TuningRecord> QueryTuningRecordForTGC(const IRModule& mod, const Target& target,
+                                                   const String& workload_name, int k);
   /*!
    * \brief Query the best schedule of the given workload from the database.
    * \param mod The IRModule to be searched for.
@@ -411,6 +427,11 @@ class PyDatabaseNode : public DatabaseNode {
   Array<TuningRecord> GetTopK(const Workload& workload, int top_k) final {
     ICHECK(f_get_top_k != nullptr) << "PyDatabase's GetTopK method not implemented!";
     return f_get_top_k(workload, top_k);
+  }
+
+  Array<TuningRecord> GetTopKForTGC(const Workload& workload, int top_k) final {
+    LOG(FATAL) << "NotImplementedError: PyDatabaseNode.GetTopKForTGC";
+    throw;
   }
 
   Array<TuningRecord> GetAllTuningRecords() final {
