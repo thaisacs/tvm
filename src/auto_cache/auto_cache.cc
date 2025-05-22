@@ -44,12 +44,15 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
 
         Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
         for (const auto& record : records) {
-            tir::Schedule sch{nullptr};
-            sch = tir::Schedule::Traced(
-                record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
-                /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-            record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
-            this->cache.push_back(sch);
+            try {
+                tir::Schedule sch{nullptr};
+                sch = tir::Schedule::Traced(
+                    record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
+                    /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
+                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
+                this->cache.push_back(sch);
+            }catch (...) {
+            }
         }
     }
     std::cout << "==================\n";
