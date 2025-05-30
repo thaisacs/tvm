@@ -4,6 +4,6 @@
 #   |_|    \_\_/_/  |_| |_| |_|   |_|____ |_|  |_| |_|____ |_|  |_| |_|____ 
 #                                                                           
 
-CachePath: "/home/thais/Dev/tvm-cache-ms/cache_v4/"
+CachePath: "/home/thais/Dev/tvm-cache-ms/cache_v6/"
 
-TotalCacheSize: 2500
+TotalCacheSize: 500

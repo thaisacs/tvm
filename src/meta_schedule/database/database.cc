@@ -129,6 +129,8 @@ bool TuningRecordNode::IsValid() const {
 }
 
 TuningRecord TuningRecord::FromJSON(const ObjectRef& json_obj, const Workload& workload) {
+  std::cout << "==> thais\n";
+  std::cout << workload->mod << std::endl;
   tir::Trace trace{nullptr};
   Optional<Array<FloatImm>> run_secs;
   Optional<Target> target;
@@ -155,14 +157,18 @@ TuningRecord TuningRecord::FromJSON(const ObjectRef& json_obj, const Workload& w
       args_info = info;
     }
     // Load json[0] => trace
+    std::cout << "==> before traced\n";
     {
       auto json_trace = json_array->at(0).cast<ObjectRef>();
       tir::Schedule sch =
           tir::Schedule::Traced(workload->mod, /*seed=*/-1, /*debug_mask=*/0,
                                 /*error_render_level=*/tir::ScheduleErrorRenderLevel::kNone);
+      std::cout << "==> before schedule\n";
       tir::Trace::ApplyJSONToSchedule(json_trace, sch);
+      std::cout << "==> after schedule\n";
       trace = sch->trace().value();
     }
+    std::cout << "==> after traced\n";
   } catch (const std::runtime_error& e) {  // includes tvm::Error and dmlc::Error
     LOG(FATAL) << "ValueError: Unable to parse the JSON object: " << json_obj
                << "\nThe error is: " << e.what();

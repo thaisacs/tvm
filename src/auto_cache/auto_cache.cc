@@ -19,11 +19,11 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
 }
 
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
-    Target target = Target("llvm -num-cores 24");
+    Target target = Target("llvm -num-cores 6");
     std::string hash = get_hash(task_name);
 
     if(hash == "mean")
-	return;
+	    return;
 
     auto cache_file = this->path + "configs/"+ hash +".yml";
     if(!std::filesystem::exists(cache_file)) {
@@ -47,15 +47,16 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
 
         Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
         for (const auto& record : records) {
-	    try {
-            tir::Schedule sch{nullptr};
-            sch = tir::Schedule::Traced(
-                record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
-                /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-            record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
+           tir::Schedule sch{nullptr};
+	        try {
+                sch = tir::Schedule::Traced(
+                    record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
+                    /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
+                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
+	        }catch (...) {
+                continue;
+	        }
             this->cache.push_back(sch);
-	    }catch (...) {
-	    }
         }
     }
     std::cout << "==================\n";

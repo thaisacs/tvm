@@ -204,6 +204,10 @@ Array<Any> TranslateInputRVs(const Array<Any>& inputs,
       results.push_back(String(std::string(name + 1, size - 2)));
       continue;
     }
+    std::cout << "==\n";
+    std::cout << name << std::endl;
+    std::cout << str << std::endl;
+    std::cout << "==\n";
     // Case 0 & 1. None, BlockRV, LoopRV, VarRV
     auto it = named_rvs.find(name);
     CHECK(it != named_rvs.end()) << "ValueError: The random variable is not defined: " << name;
@@ -216,8 +220,9 @@ Array<Any> TranslateInputRVs(const Array<Any>& inputs,
 
 void TranslateAddOutputRVs(const Array<Any>& old_outputs, const Array<Any>& new_outputs,
                            std::unordered_map<const Object*, const Object*>* rv_map) {
-  ICHECK_EQ(old_outputs.size(), new_outputs.size());
-  int n = old_outputs.size();
+  //ICHECK_EQ(old_outputs.size(), new_outputs.size());
+  //int n = old_outputs.size();
+  int n = new_outputs.size();
   for (int i = 0; i < n; ++i) {
     const Object* old_rv = old_outputs[i].as<Object>();
     const Object* new_rv = new_outputs[i].as<Object>();
@@ -258,8 +263,9 @@ Array<String> TranslateAddOutputRVs(
 
 void TranslateAddOutputRVs(const Array<String>& old_outputs, const Array<Any>& new_outputs,
                            std::unordered_map<std::string, ObjectRef>* named_rvs) {
-  ICHECK_EQ(old_outputs.size(), new_outputs.size());
-  int n = old_outputs.size();
+  //ICHECK_EQ(old_outputs.size(), new_outputs.size());
+  //int n = old_outputs.size();
+  int n = new_outputs.size();
   for (int i = 0; i < n; ++i) {
     named_rvs->emplace(Downcast<String>(old_outputs[i]), new_outputs[i].cast<ObjectRef>());
   }

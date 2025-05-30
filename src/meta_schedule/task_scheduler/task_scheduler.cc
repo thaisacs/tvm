@@ -38,7 +38,9 @@ TaskRecord::TaskRecord(TuneContext ctx, double task_weight) {
   ctx->Initialize();
   n->flop = std::max(1.0, tir::EstimateTIRFlops(ctx->mod.value()));
   n->tgc = std::make_unique<tvm::auto_cache::TaskGraphCachingAlgorithm>("/home/thais/Dev/tvm/src/auto_cache/params.yml");
-  n->tgc->LoadFromFile(ctx->mod, ctx->task_name.value());
+  bool auto_cache = true;
+  if(auto_cache)
+    n->tgc->LoadFromFile(ctx->mod, ctx->task_name.value());
   this->data_ = std::move(n);
 }
 

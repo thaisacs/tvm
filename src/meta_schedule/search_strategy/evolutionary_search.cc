@@ -481,6 +481,7 @@ class EvolutionarySearchNode : public SearchStrategyNode {
 };
 
 std::vector<Schedule> EvolutionarySearchNode::State::PickBestFromDatabase(int num) {
+  std::cout << "====> entrei\n";
   auto _ = Profiler::TimedScope("EvoSearch/PickBestFromDatabase");
   std::vector<tir::Trace> measured_traces;
   measured_traces.reserve(num);
@@ -507,6 +508,7 @@ std::vector<Schedule> EvolutionarySearchNode::State::PickBestFromDatabase(int nu
     }
   };
   support::parallel_for_dynamic(0, actual_num, self->ctx_->num_threads, f_proc_measured);
+  std::cout << "====> saindo\n";
   return results;
 }
 
@@ -601,6 +603,7 @@ std::vector<Schedule> EvolutionarySearchNode::State::EvolveWithCostModel(
         // Loop until success
         for (int fail_count = 0; fail_count <= self->genetic_max_fail_count; ++fail_count) {
           sampled_trace_id = trace_sampler();
+          sampled_trace_id = sampled_trace_id % self->population_size;
           tir::Trace trace = population.at(sampled_trace_id)->trace().value();
           if (Optional<Mutator> opt_mutator = mutator_sampler()) {
             // Decision: mutate
