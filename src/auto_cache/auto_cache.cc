@@ -9,6 +9,10 @@
 #include <filesystem>
 #include "../tir/schedule/utils.h"
 
+#include "../src/meta_schedule/module_equality.h"
+#include "../src/meta_schedule/trace_apply.h"
+#include "../src/meta_schedule/utils.h"
+
 namespace tvm {
 namespace auto_cache {
 
@@ -47,16 +51,23 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
 
         Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
         for (const auto& record : records) {
-           tir::Schedule sch{nullptr};
+            if (!record->trace.defined() || !record->workload.defined()) {
+                LOG(WARNING) << "Skipping undefined record or workload.";
+                continue;
+            }
+
+            tir::Schedule sch{nullptr};
 	        try {
                 sch = tir::Schedule::Traced(
                     record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
                     /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
+                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/true);
 	        }catch (...) {
                 continue;
 	        }
-            this->cache.push_back(sch);
+            if(sch.defined()) {
+                this->cache.push_back(sch);
+            }
         }
     }
     std::cout << "==================\n";

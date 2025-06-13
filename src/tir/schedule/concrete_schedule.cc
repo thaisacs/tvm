@@ -386,8 +386,6 @@ LoopRV ConcreteScheduleNode::Merge(const Array<LoopRV>& loop_rvs) {
 }
 
 LoopRV ConcreteScheduleNode::Fuse(const Array<LoopRV>& loop_rvs, bool preserve_unit_iters) {
-  std::cout << "==> aqui\n";
-  std::cout << this->state_->mod << std::endl;
   CHECK(!loop_rvs.empty()) << "ValueError: 'fuse' requires at least 1 loop(s)";
   Array<StmtSRef> loop_srefs = this->GetSRefs(loop_rvs);
   StmtSRef result{nullptr};

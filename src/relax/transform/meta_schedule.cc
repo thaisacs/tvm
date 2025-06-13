@@ -104,7 +104,6 @@ Pass MetaScheduleApplyDatabase(Optional<String> work_dir, bool enable_warning = 
       tvm::ffi::Function::GetGlobalRequired("tvm.meta_schedule.normalize_mod");
   ICHECK(normalize_mod_func_.has_value()) << "Normalization function is not found.";
 
-  std::cout << "==> here: before\n";
   auto pass_func = [=](IRModule mod, PassContext ctx) {
     Database database{nullptr};
     if (Database::Current().defined()) {
@@ -117,7 +116,7 @@ Pass MetaScheduleApplyDatabase(Optional<String> work_dir, bool enable_warning = 
                    << ", Tuning records at: " << path_tuning_record;
       database = meta_schedule::Database::JSONDatabase(path_workload, path_tuning_record, true);
     }
-  std::cout << "==> here: after\n";
+
 
     Map<GlobalVar, BaseFunc> result;
     auto mod_eq_structural = meta_schedule::ModuleEquality::Create("ignore-ndarray");

@@ -204,10 +204,6 @@ Array<Any> TranslateInputRVs(const Array<Any>& inputs,
       results.push_back(String(std::string(name + 1, size - 2)));
       continue;
     }
-    std::cout << "==\n";
-    std::cout << name << std::endl;
-    std::cout << str << std::endl;
-    std::cout << "==\n";
     // Case 0 & 1. None, BlockRV, LoopRV, VarRV
     auto it = named_rvs.find(name);
     CHECK(it != named_rvs.end()) << "ValueError: The random variable is not defined: " << name;

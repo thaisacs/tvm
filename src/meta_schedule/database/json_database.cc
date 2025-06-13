@@ -156,10 +156,12 @@ class JSONDatabaseNode : public DatabaseNode {
       }
       //if (record->workload.same_as(workload) ||
       //    WorkloadEqual(GetModuleEquality())(record->workload, workload)) {
+      //if(workload->shash == record->workload->shash) {
         results.push_back(record);
         if (results.size() == static_cast<size_t>(top_k)) {
           break;
         }
+      //}
       //}
     }
     return results;
@@ -207,8 +209,6 @@ Database Database::JSONDatabase(String path_workload, String path_tuning_record,
     std::vector<Any> json_objs = JSONFileReadLines(path_tuning_record, num_threads, allow_missing);
     std::vector<TuningRecord> records;
     records.resize(json_objs.size(), TuningRecord{nullptr});
-    std::cout << "==> json_size: " << json_objs.size() << std::endl;
-    std::cout << "==> before parallel...\n";
     support::parallel_for_dynamic(
         //0, json_objs.size(), num_threads, [&](int thread_id, int task_id) {
         0, json_objs.size(), 1, [&](int thread_id, int task_id) {
@@ -220,10 +220,7 @@ Database Database::JSONDatabase(String path_workload, String path_tuning_record,
             int64_t workload_index = arr->at(0).cast<IntImm>()->value;
             ICHECK(workload_index >= 0 && static_cast<size_t>(workload_index) < workloads.size());
             workload = workloads[workload_index];
-            std::cout << "==> before fromjson... " << thread_id << "\n";
-            std::cout << task_id << std::endl;
             records[task_id] = TuningRecord::FromJSON(arr->at(1).cast<ObjectRef>(), workload);
-            std::cout << "==> after fromjson... " << thread_id << "\n";
           } catch (std::runtime_error& e) {
             std::cout << "==> runtime catch...\n";
             LOG(FATAL) << "ValueError: Unable to parse TuningRecord, on line " << (task_id + 1)
@@ -234,7 +231,6 @@ Database Database::JSONDatabase(String path_workload, String path_tuning_record,
                        << e.what();
           }
         });
-    std::cout << "==> after parallel...\n";
     for (const TuningRecord& record : records) {
       n->tuning_records_.insert(record);
     }
