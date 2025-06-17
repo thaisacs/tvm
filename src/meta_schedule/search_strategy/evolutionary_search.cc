@@ -481,7 +481,6 @@ class EvolutionarySearchNode : public SearchStrategyNode {
 };
 
 std::vector<Schedule> EvolutionarySearchNode::State::PickBestFromDatabase(int num) {
-  std::cout << "====> entrei\n";
   auto _ = Profiler::TimedScope("EvoSearch/PickBestFromDatabase");
   std::vector<tir::Trace> measured_traces;
   measured_traces.reserve(num);
@@ -508,7 +507,6 @@ std::vector<Schedule> EvolutionarySearchNode::State::PickBestFromDatabase(int nu
     }
   };
   support::parallel_for_dynamic(0, actual_num, self->ctx_->num_threads, f_proc_measured);
-  std::cout << "====> saindo\n";
   return results;
 }
 
