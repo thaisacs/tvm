@@ -26,6 +26,12 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     Target target = Target("llvm -num-cores 6");
     std::string hash = get_hash(task_name);
 
+    if(hash == "mean")
+        return;
+
+    if(hash == "max-pool2d")
+        return;
+
     auto cache_file = this->path + "configs/"+ hash +".yml";
     if(!std::filesystem::exists(cache_file)) {
         return;
