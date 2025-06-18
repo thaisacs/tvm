@@ -26,9 +26,6 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     Target target = Target("llvm -num-cores 6");
     std::string hash = get_hash(task_name);
 
-    if(hash == "mean")
-	    return;
-
     auto cache_file = this->path + "configs/"+ hash +".yml";
     if(!std::filesystem::exists(cache_file)) {
         return;
@@ -50,23 +47,24 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
         database = meta_schedule::Database::JSONDatabase(path_workload, path_tuning_record, true);
 
         Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
-        for (const auto& record : records) {
-            if (!record->trace.defined() || !record->workload.defined()) {
-                LOG(WARNING) << "Skipping undefined record or workload.";
-                continue;
-            }
-
-            tir::Schedule sch{nullptr};
-	        try {
-                sch = tir::Schedule::Traced(
-                    record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
-                    /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/true);
-	        }catch (...) {
-                continue;
-	        }
+        if(records.size() > 1) {
+            for (const auto& record : records) {
+                if (!record->trace.defined() || !record->workload.defined()) {
+                    LOG(WARNING) << "Skipping undefined record or workload.";
+                    continue;
+                }
+                tir::Schedule sch{nullptr};
+                try {
+                    sch = tir::Schedule::Traced(
+                        record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
+                        /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
+                    record->trace->ApplyToSchedule(sch, /*remove_postproc=*/true);
+                }catch (...) {
+                    continue;
+                }
             if(sch.defined()) {
                 this->cache.push_back(sch);
+            }
             }
         }
     }
