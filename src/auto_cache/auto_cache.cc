@@ -26,12 +26,6 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     Target target = Target("llvm -num-cores 6");
     std::string hash = get_hash(task_name);
 
-    if(hash == "mean")
-        return;
-
-    if(hash == "max-pool2d")
-        return;
-
     auto cache_file = this->path + "configs/"+ hash +".yml";
     if(!std::filesystem::exists(cache_file)) {
         return;
@@ -62,15 +56,15 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
                 tir::Schedule sch{nullptr};
                 try {
                     sch = tir::Schedule::Traced(
-                        record->workload->mod, /*seed=*/-1, /*debug_mask=*/0,
+                        mod.value(), /*seed=*/-1, /*debug_mask=*/0,
                         /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-                    record->trace->ApplyToSchedule(sch, /*remove_postproc=*/true);
+                    record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
                 }catch (...) {
                     continue;
                 }
-            if(sch.defined()) {
-                this->cache.push_back(sch);
-            }
+                if(sch.defined()) {
+                    this->cache.push_back(sch);
+                }
             }
         }
     }
