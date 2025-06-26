@@ -9,9 +9,9 @@
 #include <filesystem>
 #include "../tir/schedule/utils.h"
 
-#include "../src/meta_schedule/module_equality.h"
-#include "../src/meta_schedule/trace_apply.h"
-#include "../src/meta_schedule/utils.h"
+#include "../meta_schedule/module_equality.h"
+#include "../meta_schedule/trace_apply.h"
+#include "../meta_schedule/utils.h"
 
 namespace tvm {
 namespace auto_cache {
@@ -20,10 +20,11 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
     Params params = read_params_file(params_file);
     this->path = params.path;
     this->total_cache_size = params.total_cache_size;
+    this->target = params.target;
 }
 
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
-    Target target = Target("llvm -num-cores 6");
+    Target target = Target(this->target);
     std::string hash = get_hash(task_name);
 
     auto cache_file = this->path + "configs/"+ hash +".yml";
@@ -33,41 +34,122 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     Config data = read_cache_file(cache_file);
     size_t value = this->total_cache_size/data.size;
 
-    for(unsigned i = 0; i < data.size; i++) {
-        std::string work_dir = this->path + data.files[i];
-        if(!std::filesystem::exists(work_dir)) {
+    //for(unsigned i = 0; i < data.size; i++) {
+    //    std::string log_file = this->path + data.files[i];
+    //    if(!std::filesystem::exists(log_file)) {
+    //      continue;
+    //    }
+    //    TaskData cache_data = read_log_file(log_file);
+
+    //    size_t value_ = value;
+    //    if(cache_data.space.size() < value) {
+    //        value_ = cache_data.space.size();
+    //    }
+
+    //    for (size_t j = 0; j < value_; j++) {
+    //        tvm::relax::Trace trace{nullptr};
+    //        Optional<Array<FloatImm>> run_secs{nullptr};
+    //        std::string record_string = get_transformations(cache_data.space[j]);
+    //        Any json = JSONLoads(record_string);
+    //        const ObjectRef& json_obj = json.cast<ObjectRef>();
+    //        const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
+    //        CHECK(json_array && json_array->size() == 2);
+    //        const ObjectRef& json_trace = json_array->at(1).cast<ObjectRef>();
+    //        const ffi::ArrayObj* json_array_test = json_trace.as<ffi::ArrayObj>();
+    //        const ObjectRef& json_trace_test = json_array_test->at(0).cast<ObjectRef>();
+    //        //relax::Trace::FromJSON(json_trace_test);
+    //        tir::Schedule sch{nullptr};
+    //        try {
+    //            sch = tir::Schedule::Traced(mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+    //                                      /*error_render_level=*/tir::ScheduleErrorRenderLevel::kNone);
+    //            tir::Trace::ApplyJSONToSchedule(json_trace_test, sch);
+    //        }catch (...) {
+    //            continue;
+    //        }
+    //        this->cache.push_back(sch);
+    //    }
+    //}
+
+    for (unsigned i = 0; i < data.size; ++i) {
+        std::string log_file = this->path + data.files[i];
+        if (!std::filesystem::exists(log_file)) {
             continue;
         }
 
-        String path_workload = work_dir + "/database_workload.json";
-        String path_tuning_record = work_dir + "/database_tuning_record.json";
-        LOG(WARNING) << "Creating JSONDatabase. Workload at: " << path_workload
-                     << ", Tuning records at: " << path_tuning_record;
-        meta_schedule::Database database{nullptr};
-        database = meta_schedule::Database::JSONDatabase(path_workload, path_tuning_record, true);
+        TaskData cache_data = read_log_file(log_file);
+        size_t limit = std::min(value, cache_data.space.size());
 
-        Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
-        if(records.size() > 1) {
-            for (const auto& record : records) {
-                if (!record->trace.defined() || !record->workload.defined()) {
-                    LOG(WARNING) << "Skipping undefined record or workload.";
-                    continue;
-                }
-                tir::Schedule sch{nullptr};
-                try {
-                    sch = tir::Schedule::Traced(
-                        mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-                        /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-                    record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
-                }catch (...) {
-                    continue;
-                }
-                if(sch.defined()) {
-                    this->cache.push_back(sch);
-                }
+        for (size_t j = 0; j < limit; ++j) {
+            std::string record_string = get_transformations(cache_data.space[j]);
+            Any json = JSONLoads(record_string);
+
+            const ObjectRef& json_obj = json.cast<ObjectRef>();
+            const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
+            if (!json_array || json_array->size() != 2) {
+                continue;
+            }
+
+            const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();;
+            const ffi::ArrayObj*  decisions_array = decisions_ref.as<ffi::ArrayObj>();
+            if (!decisions_array || decisions_array->size() == 0) {
+                continue;
+            }
+
+            const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();;
+            tir::Schedule sch{nullptr};
+
+            try {
+                sch = tir::Schedule::Traced(
+                    mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+                    tir::ScheduleErrorRenderLevel::kNone
+                );
+                tir::Trace::ApplyJSONToSchedule(trace_json, sch);
+            } catch (...) {
+                continue;  // Skip invalid traces
+            }
+
+            if(sch.defined()) {
+                this->cache.push_back(sch);
             }
         }
     }
+
+    //for(unsigned i = 0; i < data.size; i++) {
+    //    std::string work_dir = this->path + data.files[i];
+    //    if(!std::filesystem::exists(work_dir)) {
+    //        continue;
+    //    }
+
+    //    String path_workload = work_dir + "/database_workload.json";
+    //    String path_tuning_record = work_dir + "/database_tuning_record.json";
+    //    LOG(WARNING) << "Creating JSONDatabase. Workload at: " << path_workload
+    //                 << ", Tuning records at: " << path_tuning_record;
+    //    meta_schedule::Database database{nullptr};
+    //    database = meta_schedule::Database::JSONDatabase(path_workload, path_tuning_record, true);
+
+    //    Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
+    //    if(records.size() > 1) {
+    //        for (const auto& record : records) {
+    //            if (!record->trace.defined() || !record->workload.defined()) {
+    //                LOG(WARNING) << "Skipping undefined record or workload.";
+    //                continue;
+    //            }
+    //            tir::Schedule sch{nullptr};
+    //            try {
+    //                sch = tir::Schedule::Traced(
+    //                    mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+    //                    /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
+    //                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
+    //            }catch (...) {
+    //                continue;
+    //            }
+    //            if(sch.defined()) {
+    //                this->cache.push_back(sch);
+    //            }
+    //        }
+    //    }
+    //}
+
     std::cout << "==================\n";
     std::cout << task_name << std::endl;
     std::cout << hash << std::endl;

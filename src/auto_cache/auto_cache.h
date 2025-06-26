@@ -25,6 +25,11 @@ class TaskGraphCachingAlgorithm {
 
     /*! \brief The cache map for our auto cache. */
     std::vector<tir::Schedule> cache;
+
+    /*!
+     * \brief The record target.
+     */
+    std::string target;
 public:
     TaskGraphCachingAlgorithm(std::string params_file);
     void LoadFromFile(Optional<IRModule> mod, std::string task_name);
