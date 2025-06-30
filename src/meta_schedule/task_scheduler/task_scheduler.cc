@@ -19,11 +19,12 @@
 #include "../utils.h"
 
 #include "../../auto_cache/auto_cache.h"
+#include <filesystem>
 
 namespace tvm {
 namespace meta_schedule {
 
-TaskRecord::TaskRecord(TuneContext ctx, double task_weight) {
+TaskRecord::TaskRecord(TuneContext ctx, double task_weight, std::string subgraph_cache) {
   ObjectPtr<TaskRecordNode> n = ffi::make_object<TaskRecordNode>();
   n->ctx = ctx;
   n->task_weight = task_weight;
@@ -37,10 +38,12 @@ TaskRecord::TaskRecord(TuneContext ctx, double task_weight) {
   TVM_PY_LOG(INFO, ctx->logger) << "\n" << ctx->mod;
   ctx->Initialize();
   n->flop = std::max(1.0, tir::EstimateTIRFlops(ctx->mod.value()));
-  n->tgc = std::make_unique<tvm::auto_cache::TaskGraphCachingAlgorithm>("/home/thais/Dev/tvm/src/auto_cache/params.yml");
-  bool auto_cache = true;
-  if(auto_cache)
+  if(std::filesystem::exists(subgraph_cache)){
+    n->tgc = std::make_unique<tvm::auto_cache::TaskGraphCachingAlgorithm>(subgraph_cache);
     n->tgc->LoadFromFile(ctx->mod, ctx->task_name.value());
+  }else {
+    n->tgc = nullptr;
+  }
   this->data_ = std::move(n);
 }
 
@@ -150,7 +153,7 @@ void TaskSchedulerNode::Tune(Array<TuneContext> ctxs, Array<FloatImm> task_weigh
                              int max_trials_global, int max_trials_per_task,
                              int num_trials_per_iter, Builder builder, Runner runner,
                              Array<MeasureCallback> measure_callbacks, Optional<Database> database,
-                             Optional<CostModel> cost_model) {
+                             Optional<CostModel> cost_model, std::string subgraph_cache) {
   CHECK_EQ(ctxs.size(), task_weights.size()) << "ValueError: `task_weights` must have the same "
                                                 "length as `ctxs`";
   int n_tasks = this->remaining_tasks_ = ctxs.size();
@@ -164,7 +167,7 @@ void TaskSchedulerNode::Tune(Array<TuneContext> ctxs, Array<FloatImm> task_weigh
     double weight = task_weights[i]->value;
     TVM_PY_LOG(INFO, this->logger) << "Initializing Task #" << i << ": " << ctx->task_name;
     TVM_PY_LOG(INFO, ctx->logger) << "Initializing Task #" << i << ": " << ctx->task_name;
-    this->tasks_.push_back(TaskRecord(ctx, weight));
+    this->tasks_.push_back(TaskRecord(ctx, weight, subgraph_cache));
     Array<tir::Schedule> design_spaces =
         ctx->space_generator.value()->GenerateDesignSpace(ctx->mod.value());
     TVM_PY_LOG(INFO, ctx->logger) << "Total " << design_spaces.size()
@@ -192,9 +195,8 @@ void TaskSchedulerNode::Tune(Array<TuneContext> ctxs, Array<FloatImm> task_weigh
       TerminateTask(task_id);
       continue;
     }
-    bool auto_cache = true;
     Optional<Array<MeasureCandidate>> candidates;
-    if(auto_cache) {
+    if(task->tgc) {
       candidates = task->measure_candidates = task->ctx->search_strategy.value()->GenerateMeasureCandidatesWithTGC(task->tgc);
     }else {
       candidates = task->measure_candidates = task->ctx->search_strategy.value()->GenerateMeasureCandidates();
@@ -362,11 +364,11 @@ void PyTaskSchedulerNode::Tune(Array<TuneContext> tasks, Array<FloatImm> task_we
                                int max_trials_global, int max_trials_per_task,
                                int num_trials_per_iter, Builder builder, Runner runner,
                                Array<MeasureCallback> measure_callbacks,
-                               Optional<Database> database, Optional<CostModel> cost_model) {
+                               Optional<Database> database, Optional<CostModel> cost_model, std::string subgraph_cache) {
   if (f_tune == nullptr) {
     TaskSchedulerNode::Tune(tasks, task_weights, max_trials_global, max_trials_per_task,
                             num_trials_per_iter, builder, runner, measure_callbacks, database,
-                            cost_model);
+                            cost_model, subgraph_cache);
   } else {
     f_tune(tasks, task_weights, max_trials_global, max_trials_per_task, num_trials_per_iter,
            builder, runner, measure_callbacks, database, cost_model);

@@ -35,12 +35,13 @@ namespace transform {
 
 class MetaScheduleTuner {
  public:
-  explicit MetaScheduleTuner(Target target, String work_dir, Integer max_trials_global,
+  explicit MetaScheduleTuner(Target target, String work_dir, Integer max_trials_global, String subgraph_cache,
                              Integer max_trials_per_task, Optional<Array<String>> op_names,
                              Map<String, runtime::NDArray> params = {})
       : target_(target),
         work_dir_(work_dir),
         max_trials_global_(max_trials_global),
+        subgraph_cache_(subgraph_cache),
         max_trials_per_task_(max_trials_per_task),
         op_names_(op_names),
         params_(params) {
@@ -52,7 +53,7 @@ class MetaScheduleTuner {
   IRModule TuneIRMod(IRModule mod, transform::PassContext ctx) {
     Choice choice(
         "tvm.meta_schedule.tune_relax",
-        {params_, target_, work_dir_, max_trials_global_, max_trials_per_task_, op_names_},
+        {params_, target_, work_dir_, max_trials_global_, subgraph_cache_, max_trials_per_task_, op_names_},
         "relax.tuning_api.Choice.default_constr_func", {});
     Knob knob("meta_schedule.tune_irmod", {{"0", choice}});
     knob->Apply(mod, "0");
@@ -91,6 +92,7 @@ class MetaScheduleTuner {
   Target target_;
   String work_dir_;
   Integer max_trials_global_;
+  String subgraph_cache_;
   Integer max_trials_per_task_;
   Optional<Array<String>> op_names_;
   Map<String, runtime::NDArray> params_;
@@ -173,13 +175,13 @@ Pass MetaScheduleApplyDatabase(Optional<String> work_dir, bool enable_warning = 
 }
 
 Pass MetaScheduleTuneIRMod(Map<String, runtime::NDArray> params, String work_dir,
-                           Integer max_trials_global,
+                           Integer max_trials_global, String subgraph_cache,
                            Optional<Integer> max_trials_per_task = std::nullopt,
                            Optional<Array<String>> op_names = std::nullopt) {
   Target target = Target::Current(false);
   auto pass_func = [=](IRModule m, PassContext ctx) {
     auto max_trials_task = max_trials_per_task.value_or(max_trials_global);
-    return MetaScheduleTuner(target, work_dir, max_trials_global, max_trials_task, op_names, params)
+    return MetaScheduleTuner(target, work_dir, max_trials_global, subgraph_cache, max_trials_task, op_names, params)
         .TuneIRMod(m, ctx);
   };
   return CreateModulePass(/*pass function*/ pass_func, /*opt level*/ 0,
@@ -188,11 +190,11 @@ Pass MetaScheduleTuneIRMod(Map<String, runtime::NDArray> params, String work_dir
                           /*traceable*/ true);
 }
 
-Pass MetaScheduleTuneTIR(String work_dir, Integer max_trials_global) {
+Pass MetaScheduleTuneTIR(String work_dir, Integer max_trials_global, String subgraph_cache) {
   Target target = Target::Current(false);
   ffi::TypedFunction<tir::PrimFunc(tir::PrimFunc, IRModule, PassContext)> pass_func =
       [=](tir::PrimFunc f, IRModule mod, PassContext ctx) {
-        return MetaScheduleTuner(target, work_dir, max_trials_global, max_trials_global,
+        return MetaScheduleTuner(target, work_dir, max_trials_global, subgraph_cache, max_trials_global,
                                  std::nullopt)
             .TuneTIR(f, ctx);
       };

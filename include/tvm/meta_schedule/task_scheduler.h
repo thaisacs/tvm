@@ -88,7 +88,7 @@ class TaskRecordNode : public runtime::Object {
 class TaskRecord : public runtime::ObjectRef {
  public:
   /*! \brief Constructor */
-  explicit TaskRecord(TuneContext task, double task_weight);
+  explicit TaskRecord(TuneContext task, double task_weight, std::string subgraph_cache);
 
   TVM_DEFINE_MUTABLE_NOTNULLABLE_OBJECT_REF_METHODS(TaskRecord, ObjectRef, TaskRecordNode);
 };
@@ -189,7 +189,8 @@ class TaskSchedulerNode : public runtime::Object {
                     Runner runner,                             //
                     Array<MeasureCallback> measure_callbacks,  //
                     Optional<Database> database,               //
-                    Optional<CostModel> cost_model);
+                    Optional<CostModel> cost_model,            //
+                    std::string subgraph_cache);
   /*!
    * \brief Terminate a task
    * \param task_id The id of the task to be terminated
@@ -253,7 +254,7 @@ class PyTaskSchedulerNode : public TaskSchedulerNode {
   void Tune(Array<TuneContext> tasks, Array<FloatImm> task_weights, int max_trials_global,
             int max_trials_per_task, int num_trials_per_iter, Builder builder, Runner runner,
             Array<MeasureCallback> measure_callbacks, Optional<Database> database,
-            Optional<CostModel> cost_model) final;
+            Optional<CostModel> cost_model, std::string subgraph_cache) final;
 
   static constexpr const char* _type_key = "meta_schedule.PyTaskScheduler";
   TVM_DECLARE_FINAL_OBJECT_INFO(PyTaskSchedulerNode, TaskSchedulerNode);

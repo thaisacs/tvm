@@ -102,6 +102,7 @@ class TaskScheduler(Object):
         measure_callbacks: List[MeasureCallback],
         database: Optional[Database],
         cost_model: Optional[CostModel],
+        subgraph_cache: str,
     ) -> None:
         """Auto-tuning.
 
@@ -141,6 +142,7 @@ class TaskScheduler(Object):
             measure_callbacks,
             database,
             cost_model,
+            subgraph_cache,
         )
 
     def terminate_task(self, task_id: int) -> None:
@@ -243,6 +245,7 @@ class PyTaskScheduler:
         measure_callbacks: List[MeasureCallback],
         database: Optional[Database],
         cost_model: Optional[CostModel],
+        subgraph_cache: str,
     ) -> None:
         """Auto-tuning."""
         # Using self._outer to replace the self pointer
@@ -257,6 +260,7 @@ class PyTaskScheduler:
             measure_callbacks,
             database,
             cost_model,
+            subgraph_cache,
         )
 
     def next_task_id(self) -> int:

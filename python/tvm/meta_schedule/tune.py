@@ -39,6 +39,7 @@ def tune_tasks(
     runner: Runner.RunnerType = "local",
     database: Database.DatabaseType = "json",
     cost_model: CostModel.CostModelType = "xgb",
+    subgraph_cache: str = "",
     measure_callbacks: MeasureCallback.CallbackListType = "default",
     task_scheduler: TaskScheduler.TaskSchedulerType = "gradient",
     module_equality: str = "structural",
@@ -130,6 +131,7 @@ def tune_tasks(
         measure_callbacks=measure_callbacks,
         database=database,
         cost_model=cost_model,
+        subgraph_cache=subgraph_cache,
     )
     if post_optimization:
         post_opt = PostOpt(work_dir, tasks[0].target)

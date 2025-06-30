@@ -111,6 +111,7 @@ def static_shape_tuning_pipeline(
     target: Union[str, tvm.target.Target],
     work_dir: str = "tuning_logs",
     cpu_weight_prepack: bool = False,
+    subgraph_cache: str = "",
 ):
     """Tune the static shape model and store the log to database.
 
@@ -177,7 +178,7 @@ def static_shape_tuning_pipeline(
                     *pre_tuning_layout_rewrite,
                     # Skip tuning if total_trials is 0
                     (
-                        transform.MetaScheduleTuneIRMod({}, work_dir, total_trials)
+                        transform.MetaScheduleTuneIRMod({}, work_dir, total_trials, subgraph_cache)
                         if total_trials > 0
                         else tvm.transform.Sequential([])
                     ),

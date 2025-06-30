@@ -1226,6 +1226,7 @@ def MetaScheduleTuneIRMod(
     params: Dict[str, NDArray],
     work_dir: str,
     max_trials_global: int,
+    subgraph_cache: str,
     max_trials_per_task: Optional[int] = None,
     op_names: Optional[List[str]] = None,
 ) -> tvm.ir.transform.Pass:
@@ -1250,7 +1251,7 @@ def MetaScheduleTuneIRMod(
     ret: tvm.ir.transform.Pass
     """
     return _ffi_api.MetaScheduleTuneIRMod(
-        params, work_dir, max_trials_global, max_trials_per_task, op_names
+        params, work_dir, max_trials_global, subgraph_cache, max_trials_per_task, op_names
     )  # type: ignore
 
 
