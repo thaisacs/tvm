@@ -4,6 +4,8 @@
 #   |_|    \_\_/_/  |_| |_| |_|   |_|____ |_|  |_| |_|____ |_|  |_| |_|____ 
 #                                                                           
 
-CachePath: "/home/thais/Dev/tvm-cache-ms/cache_v6/"
+CachePath: "/home/thais/Dev/TVMBenchV2/test/cache-test/"
 
 TotalCacheSize: 500
+
+Target: "llvm -num-cores 6"
