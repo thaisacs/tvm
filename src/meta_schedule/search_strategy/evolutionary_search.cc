@@ -532,7 +532,7 @@ std::vector<Schedule> EvolutionarySearchNode::State::SampleInitPopulation(int nu
     };
     support::parallel_for_dynamic(0, num, self->ctx_->num_threads, f_proc_unmeasured);
     bool found_new = false;
-    for (int i = 0; i < num; i++) {
+    for (int i = static_cast<int>(out_schs.size()); i < num; i++) {
       if (results[i].defined()) {
         found_new = true;
         out_schs.push_back(results[i]);
@@ -726,14 +726,13 @@ Optional<Array<MeasureCandidate>> EvolutionarySearchNode::State::GenerateMeasure
       << "Picked top " << measured.size() << " candidate(s) from database";
   std::vector<Schedule> unmeasured_cache = tgc->SampleInitPopulation(pop - measured.size());
   std::vector<Schedule> unmeasured = SampleInitPopulation(pop - (measured.size() + unmeasured_cache.size()));
-  if (static_cast<int>(unmeasured.size()) < self->init_min_unmeasured) {
+  if (static_cast<int>(unmeasured.size()) + static_cast<int>(unmeasured_cache.size()) < self->init_min_unmeasured) {
     TVM_PY_LOG(WARNING, self->ctx_->logger)
         << "Cannot sample enough initial population, evolutionary search failed.";
     return std::nullopt;
   }
   TVM_PY_LOG(INFO, self->ctx_->logger) << "Sampled " << unmeasured.size() << " candidate(s)";
-  if(unmeasured_cache.size())
-    inits.insert(inits.end(), unmeasured_cache.begin(), unmeasured_cache.end());
+  inits.insert(inits.end(), unmeasured_cache.begin(), unmeasured_cache.end());
   inits.insert(inits.end(), measured.begin(), measured.end());
   inits.insert(inits.end(), unmeasured.begin(), unmeasured.end());
   std::vector<Schedule> bests = EvolveWithCostModel(inits, sample_num);

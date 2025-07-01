@@ -161,7 +161,9 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
 
 std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int num) {
     std::vector<tir::Schedule> candidates;
-    for (size_t idx = 0; idx < this->cache.size(); idx++) {
+    if(num > static_cast<int>(this->cache.size()))
+        num = static_cast<int>(this->cache.size());
+    for (int idx = 0; idx < num; idx++) {
         candidates.push_back(this->cache[idx]);
     }
     return std::move(candidates);
