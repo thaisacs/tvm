@@ -34,7 +34,8 @@ std::string get_hash(std::string task_name) {
                 part[i] == '6' ||
                 part[i] == '7' ||
                 part[i] == '8' ||
-                part[i] == '9'
+                part[i] == '9' ||
+                part[i] == '0'
             ) {
                 end = i - 1;
             }else {
