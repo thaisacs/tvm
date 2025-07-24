@@ -4,8 +4,8 @@
 #   |_|    \_\_/_/  |_| |_| |_|   |_|____ |_|  |_| |_|____ |_|  |_| |_|____ 
 #                                                                           
 
-CachePath: "/home/thais/Dev/TVMBenchV2/test/cache-test/"
+CachePath: "/home/thais.camacho/tvm-cache-ms/cache_v4/cache-densenet_121-alexnet/"
 
 TotalCacheSize: 500
 
-Target: "llvm -num-cores 6"
+Target: "llvm -num-cores 24"
