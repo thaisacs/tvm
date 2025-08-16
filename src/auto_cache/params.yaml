@@ -4,6 +4,6 @@
 #   |_|    \_\_/_/  |_| |_| |_|   |_|____ |_|  |_| |_|____ |_|  |_| |_|____ 
 #                                                                           
 
-CachePath: "/home/thais/Dev/tvm/src/auto_cache/tvm-cache/"
+CachePath: "/home/thais.camacho/tvm-cache/cache-v3/cache-densenet_121-alexnet/"
 
 TotalCacheSize: 2500

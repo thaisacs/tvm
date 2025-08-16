@@ -27,8 +27,10 @@ void AutoCache::LoadFromFile(tvm::auto_scheduler::SearchTask search_task) {
   std::string hash = get_hash(workload_key);
   auto cache_file = this->path + "configs/"+ hash +".yml";
   if(!std::filesystem::exists(cache_file)) {
+    std::cout << "cache info: miss";
     return;
   }
+  std::cout << "cache info: hit\n";
   Config data = read_cache_file(cache_file);
   size_t value = this->total_cache_size/data.size;
 

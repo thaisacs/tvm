@@ -44,7 +44,7 @@ namespace auto_scheduler {
 class EmptyPolicyNode : public SearchPolicyNode {
  public:
   State Search(int num_measure_trials, int early_stopping, int num_measures_per_round,
-               ProgramMeasurer measurer) final;
+               ProgramMeasurer measurer, std::string subgraph_cache) final;
 
   std::pair<Array<MeasureInput>, Array<MeasureResult>> ContinueSearchOneRound(
       int num_measure, ProgramMeasurer measurer, std::string subgraph_cache) final;

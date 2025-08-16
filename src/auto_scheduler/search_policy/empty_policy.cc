@@ -51,7 +51,7 @@ EmptyPolicy::EmptyPolicy(SearchTask task, Optional<Array<SearchCallback>> init_s
 }
 
 State EmptyPolicyNode::Search(int num_measure_trials, int early_stopping,
-                              int num_measures_per_round, ProgramMeasurer measurer) {
+                              int num_measures_per_round, ProgramMeasurer measurer, std::string subgraph_cache) {
   // Basic design principe: `SearchOneRound()` several times to get candidate states,
   // measure them and return the best one
   // Measure is disabled if num_measure_trials <= 1

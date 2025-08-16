@@ -47,15 +47,16 @@ TuningOptions::TuningOptions(int num_measure_trials, int early_stopping, int num
 }
 
 std::pair<te::Schedule, Array<te::Tensor>> AutoSchedule(SearchPolicy search_policy,
-                                                        TuningOptions tuning_options) {
+                                                        TuningOptions tuning_options, std::string subgraph_cache) {
   // Create a ProgramMeasurer to handle the schedule build and performance measure
   ProgramMeasurer measurer =
       ProgramMeasurer(tuning_options->builder, tuning_options->runner,
                       tuning_options->measure_callbacks, tuning_options->verbose);
+  std::cout << subgraph_cache << std::endl;
   // Search for the best schedule
   State state =
       search_policy->Search(tuning_options->num_measure_trials, tuning_options->early_stopping,
-                            tuning_options->num_measures_per_round, measurer);
+                            tuning_options->num_measures_per_round, measurer, subgraph_cache);
   if (state.defined()) {
     return search_policy->search_task->compute_dag.ApplySteps(state->transform_steps);
   } else {
@@ -77,8 +78,8 @@ TVM_REGISTER_GLOBAL("auto_scheduler.TuningOptions")
     });
 
 TVM_REGISTER_GLOBAL("auto_scheduler.AutoSchedule")
-    .set_body_typed([](SearchPolicy search_policy, TuningOptions tuning_options) {
-      auto [sch, return_tensors] = AutoSchedule(search_policy, tuning_options);
+    .set_body_typed([](SearchPolicy search_policy, TuningOptions tuning_options, std::string subgraph_cache) {
+      auto [sch, return_tensors] = AutoSchedule(search_policy, tuning_options, subgraph_cache);
       return Array<ObjectRef>{sch, return_tensors};
     });
 }  // namespace auto_scheduler

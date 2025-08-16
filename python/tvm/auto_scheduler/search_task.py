@@ -490,7 +490,7 @@ class SearchTask(Object):
             cost_model = XGBModel(adaptive_training=adaptive_training)
             search_policy = SketchPolicy(self, cost_model, subgraph_cache=subgraph_cache)
 
-        _ffi_api.AutoSchedule(search_policy, tuning_options)
+        _ffi_api.AutoSchedule(search_policy, tuning_options, subgraph_cache)
 
     def apply_best(self, log_file, include_compatible=False, layout_rewrite_option=None):
         """Apply the history best from a log file and return the schedule.

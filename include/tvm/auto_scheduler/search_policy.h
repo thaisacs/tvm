@@ -151,7 +151,7 @@ class SearchPolicyNode : public Object {
    * \return The best state found.
    */
   virtual State Search(int num_measure_trials, int early_stopping, int num_measures_per_round,
-                       ProgramMeasurer measurer) = 0;
+                       ProgramMeasurer measurer, std::string subgraph_cache) = 0;
 
   /*!
    * \brief Continue the search by doing an additional search round.

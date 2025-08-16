@@ -165,7 +165,7 @@ SketchPolicy::SketchPolicy(SearchTask task, CostModel program_cost_model,
 }
 
 State SketchPolicyNode::Search(int n_trials, int early_stopping, int num_measure_per_iter,
-                               ProgramMeasurer measurer) {
+                               ProgramMeasurer measurer, std::string subgraph_cache) {
   num_measure_per_iter_ = num_measure_per_iter;
 
   if (n_trials <= 1) {
@@ -197,7 +197,7 @@ State SketchPolicyNode::Search(int n_trials, int early_stopping, int num_measure
 
       // Search one round to get promising states
       PrintTitle("Search", verbose);
-      best_states = SearchOneRound(num_random * 3, &random_states);
+      best_states = SearchOneRound(num_random * 3, &random_states, subgraph_cache);
 
       // Infer bound. This is necessary for computing the correct ToStr() for redundancy check
       best_states = search_task->compute_dag.InferBound(best_states);
@@ -306,12 +306,15 @@ Array<State> SketchPolicyNode::SearchOneRound(int num_random_states, Array<State
   // 2. Sample the init population
   Array<State> init_population;
   // Auto cache
+  std::cout << subgraph_cache << std::endl;
   if(std::filesystem::exists(subgraph_cache)){
+    std::cout << "hit\n";
     init_population = auto_cache->SampleInitPopulation();
     if(!init_population.size()) {
       init_population = SampleInitPopulation(sketch_cache_);
     }
   }else {
+    std::cout << "miss\n";
       init_population = SampleInitPopulation(sketch_cache_);
   }
 
