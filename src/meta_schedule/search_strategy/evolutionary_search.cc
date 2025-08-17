@@ -724,7 +724,7 @@ Optional<Array<MeasureCandidate>> EvolutionarySearchNode::State::GenerateMeasure
   std::vector<Schedule> measured = PickBestFromDatabase(pop * self->init_measured_ratio);
   TVM_PY_LOG(INFO, self->ctx_->logger)
       << "Picked top " << measured.size() << " candidate(s) from database";
-  std::vector<Schedule> unmeasured_cache = tgc->SampleInitPopulation(pop - measured.size());
+  std::vector<Schedule> unmeasured_cache = tgc->SampleInitPopulation((pop - measured.size())*0.5);
   std::vector<Schedule> unmeasured = SampleInitPopulation(pop - (measured.size() + unmeasured_cache.size()));
   if (static_cast<int>(unmeasured.size()) + static_cast<int>(unmeasured_cache.size()) < self->init_min_unmeasured) {
     TVM_PY_LOG(WARNING, self->ctx_->logger)
