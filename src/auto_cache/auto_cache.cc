@@ -6,12 +6,22 @@
 #include <tvm/relax/tuning_api.h>
 #include <tvm/tir/transform.h>
 
-#include <filesystem>
 #include "../tir/schedule/utils.h"
 
 #include "../meta_schedule/module_equality.h"
 #include "../meta_schedule/trace_apply.h"
 #include "../meta_schedule/utils.h"
+
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <map>
+
+extern "C" int nw_cmdline(const char*, const char*);
 
 namespace tvm {
 namespace auto_cache {
@@ -20,143 +30,96 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
     Params params = read_params_file(params_file);
     this->path = params.path;
     this->total_cache_size = params.total_cache_size;
-    this->target = params.target;
 }
 
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
-    Target target = Target(this->target);
-    std::string hash = get_hash(task_name);
-
-    auto cache_file = this->path + "configs/"+ hash +".yml";
-    if(!std::filesystem::exists(cache_file)) {
+    // Load dict
+    std::string filename = this->path + "dict.csv";
+    if(!std::filesystem::exists(filename)) {
+        std::cout << "File " << filename << " does not exist." << std::endl;
         return;
     }
-    Config data = read_cache_file(cache_file);
-    size_t value = this->total_cache_size/data.size;
+    std::unique_ptr<Dict> dict = std::make_unique<Dict>(filename);
 
-    //for(unsigned i = 0; i < data.size; i++) {
-    //    std::string log_file = this->path + data.files[i];
-    //    if(!std::filesystem::exists(log_file)) {
-    //      continue;
-    //    }
-    //    TaskData cache_data = read_log_file(log_file);
+    std::ostringstream oss;
+    oss << mod.value();  // or oss << mod; if not Optional
+    std::string mod_string = oss.str();
+    std::unique_ptr<DNA> dna_obj = std::make_unique<DNA>(mod_string, move(dict));
+    std::string test_dna = dna_obj->DumpGene();
+    std::cout << "DNA: " << test_dna << std::endl;
 
-    //    size_t value_ = value;
-    //    if(cache_data.space.size() < value) {
-    //        value_ = cache_data.space.size();
-    //    }
+    int best_similarity = -100000;
+    std::string best_filename;
+    // Load cache
+    for (const auto& entry : std::filesystem::directory_iterator(this->path)) {
+        if (entry.is_regular_file()) {
+            std::string file_type = entry.path().filename().string().substr(0, 6);
+            if(file_type == "cachex") {
+                std::string file_path = this->path + entry.path().filename().string();
+                TaskData cache_data = read_log_file(file_path);
 
-    //    for (size_t j = 0; j < value_; j++) {
-    //        tvm::relax::Trace trace{nullptr};
-    //        Optional<Array<FloatImm>> run_secs{nullptr};
-    //        std::string record_string = get_transformations(cache_data.space[j]);
-    //        Any json = JSONLoads(record_string);
-    //        const ObjectRef& json_obj = json.cast<ObjectRef>();
-    //        const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
-    //        CHECK(json_array && json_array->size() == 2);
-    //        const ObjectRef& json_trace = json_array->at(1).cast<ObjectRef>();
-    //        const ffi::ArrayObj* json_array_test = json_trace.as<ffi::ArrayObj>();
-    //        const ObjectRef& json_trace_test = json_array_test->at(0).cast<ObjectRef>();
-    //        //relax::Trace::FromJSON(json_trace_test);
-    //        tir::Schedule sch{nullptr};
-    //        try {
-    //            sch = tir::Schedule::Traced(mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-    //                                      /*error_render_level=*/tir::ScheduleErrorRenderLevel::kNone);
-    //            tir::Trace::ApplyJSONToSchedule(json_trace_test, sch);
-    //        }catch (...) {
-    //            continue;
-    //        }
-    //        this->cache.push_back(sch);
-    //    }
-    //}
-
-    for (unsigned i = 0; i < data.size; ++i) {
-        std::string log_file = this->path + data.files[i];
-        if (!std::filesystem::exists(log_file)) {
-            continue;
-        }
-
-        TaskData cache_data = read_log_file(log_file);
-        size_t limit = std::min(value, cache_data.space.size());
-
-        for (size_t j = 0; j < limit; ++j) {
-            std::string record_string = get_transformations(cache_data.space[j]);
-            Any json = JSONLoads(record_string);
-
-            const ObjectRef& json_obj = json.cast<ObjectRef>();
-            const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
-            if (!json_array || json_array->size() != 2) {
-                continue;
-            }
-
-            const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();;
-            const ffi::ArrayObj*  decisions_array = decisions_ref.as<ffi::ArrayObj>();
-            if (!decisions_array || decisions_array->size() == 0) {
-                continue;
-            }
-
-            const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();;
-            tir::Schedule sch{nullptr};
-
-            try {
-                sch = tir::Schedule::Traced(
-                    mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-                    tir::ScheduleErrorRenderLevel::kNone
-                );
-                tir::Trace::ApplyJSONToSchedule(trace_json, sch);
-            } catch (...) {
-                continue;  // Skip invalid traces
-            }
-
-            if(sch.defined()) {
-                this->cache.push_back(sch);
+                int similarity_value = nw_cmdline(test_dna.c_str(), cache_data.dna.c_str());
+                if(similarity_value > best_similarity) {
+                    best_similarity = similarity_value;
+                    best_filename = file_path;
+                }
             }
         }
     }
 
-    //for(unsigned i = 0; i < data.size; i++) {
-    //    std::string work_dir = this->path + data.files[i];
-    //    if(!std::filesystem::exists(work_dir)) {
-    //        continue;
-    //    }
+    TaskData cache_data = read_log_file(best_filename);
+    tvm::relax::Trace trace{nullptr};
+    Optional<Array<FloatImm>> run_secs{nullptr};
 
-    //    String path_workload = work_dir + "/database_workload.json";
-    //    String path_tuning_record = work_dir + "/database_tuning_record.json";
-    //    LOG(WARNING) << "Creating JSONDatabase. Workload at: " << path_workload
-    //                 << ", Tuning records at: " << path_tuning_record;
-    //    meta_schedule::Database database{nullptr};
-    //    database = meta_schedule::Database::JSONDatabase(path_workload, path_tuning_record, true);
+    std::string record_string = get_transformations(cache_data.space[0]);
+    Any json = JSONLoads(record_string);
 
-    //    Array<meta_schedule::TuningRecord> records = database->QueryTuningRecordForTGC(mod.value(), target, task_name, value);
-    //    if(records.size() > 1) {
-    //        for (const auto& record : records) {
-    //            if (!record->trace.defined() || !record->workload.defined()) {
-    //                LOG(WARNING) << "Skipping undefined record or workload.";
-    //                continue;
-    //            }
-    //            tir::Schedule sch{nullptr};
-    //            try {
-    //                sch = tir::Schedule::Traced(
-    //                    mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-    //                    /*error_render_level=*/tir::ScheduleErrorRenderLevel::kDetail);
-    //                record->trace->ApplyToSchedule(sch, /*remove_postproc=*/false);
-    //            }catch (...) {
-    //                continue;
-    //            }
-    //            if(sch.defined()) {
-    //                this->cache.push_back(sch);
-    //            }
-    //        }
-    //    }
-    //}
+    const ObjectRef& json_obj = json.cast<ObjectRef>();
+    const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
+    if (!json_array || json_array->size() != 2) {
+        //continue;
+        return;
+    }
 
-    std::cout << "==================\n";
-    std::cout << task_name << std::endl;
-    std::cout << hash << std::endl;
-    std::cout << cache_file << std::endl;
-    std::cout << "files size: " << data.size << std::endl;
+    const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
+    const ffi::ArrayObj* decisions_array = decisions_ref.as<ffi::ArrayObj>();
+    if (!decisions_array || decisions_array->size() == 0) {
+        //continue;
+        return;
+    }
+
+    const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
+    tir::Schedule sch{nullptr};
+
+    try {
+        sch = tir::Schedule::Traced(
+            mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+            tir::ScheduleErrorRenderLevel::kNone
+        );
+        tir::Trace::ApplyJSONToSchedule(trace_json, sch);
+        std::cout << "success..." << std::endl;
+    } catch (...) {
+        std::cout << "error..." << std::endl;
+        //continue;  // Skip invalid traces
+        return;
+    }
+
+    if(sch.defined()) {
+        this->cache.push_back(sch);
+    }
+
+    std::cout << "===================" << std::endl;
+    std::cout << "Best similarity: " << best_similarity << std::endl;
+    std::cout << "Test DNA: " << test_dna.size() << std::endl;
     std::cout << "cache size: " << this->cache.size() << std::endl;
-    std::cout << "==================\n";
+    std::cout << "===================" << std::endl;
+
+    //std::cout << "==================\n";
+    //std::cout << task_name << std::endl;
+    //std::cout << hash << std::endl;
+    //std::cout << cache_file << std::endl;
+    //std::cout << "files size: " << data.size << std::endl;
+    //std::cout << "==================\n";
 }
 
 std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int num) {
@@ -166,6 +129,7 @@ std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int n
     for (int idx = 0; idx < num; idx++) {
         candidates.push_back(this->cache[idx]);
     }
+    std::cout << "candidates size: " << candidates.size() << std::endl;
     return std::move(candidates);
 }
 

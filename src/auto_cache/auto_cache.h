@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#include "dna.h"
+
 using namespace tvm;
 using namespace tvm::meta_schedule;
 

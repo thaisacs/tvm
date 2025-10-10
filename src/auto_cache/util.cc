@@ -50,14 +50,6 @@ std::string get_hash(std::string task_name) {
     return hash;
 }
 
-Config read_cache_file(std::string cache_file) {
-    Config data;
-    auto InputPBuffer = llvm::MemoryBuffer::getFile(cache_file);
-    llvm::yaml::Input yinp(InputPBuffer->get()->getBuffer());
-    yinp >> data;
-    return data;
-}
-
 TaskData read_log_file(std::string log_file) {
     TaskData data;
     auto InputPBuffer = llvm::MemoryBuffer::getFile(log_file);

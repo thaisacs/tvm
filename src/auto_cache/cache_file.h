@@ -6,7 +6,7 @@ namespace tvm {
 namespace auto_cache {
     struct TaskData {
         unsigned id;
-        std::string hash;
+        std::string dna;
         std::vector<std::string> space;
     };
 }

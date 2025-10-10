@@ -7,7 +7,6 @@ namespace auto_cache {
     struct Params {
         unsigned total_cache_size;
         std::string path;
-        std::string target;
     };
 }
 }

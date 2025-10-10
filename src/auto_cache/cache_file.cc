@@ -6,6 +6,6 @@ using namespace tvm::auto_cache;
 
 void MappingTraits<TaskData>::mapping(IO &io, TaskData &data) {
     io.mapRequired("id", data.id);
-    io.mapRequired("hash", data.hash);
+    io.mapRequired("dna", data.dna);
     io.mapRequired("space", data.space);
 }

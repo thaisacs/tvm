@@ -133,7 +133,7 @@ include_directories(SYSTEM ${COMPILER_RT_PATH})
 include_directories(SYSTEM ${PICOJSON_PATH})
 
 # initial variables
-set(TVM_LINKER_LIBS "")
+set(TVM_LINKER_LIBS "-lz")
 set(TVM_RUNTIME_LINKER_LIBS "")
 
 
@@ -315,6 +315,7 @@ tvm_file_glob(GLOB_RECURSE COMPILER_SRCS
     src/relax/op/distributed/*.cc
     src/relax/testing/*.cc
     src/auto_cache/*.cc
+    src/auto_cache/*.c
     )
 
 tvm_file_glob(GLOB CODEGEN_SRCS

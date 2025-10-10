@@ -5,15 +5,13 @@
 #include <iostream>
 
 #include "params.h"
-#include "config.h"
+#include "dict.h"
 #include "cache_file.h"
 
 namespace tvm {
 namespace auto_cache {
 
 std::string get_hash(std::string task_name);
-
-Config read_cache_file(std::string cache_file);
 
 TaskData read_log_file(std::string log_file);
 
