@@ -1,5 +1,6 @@
 #include "auto_cache.h"
 #include "util.h"
+#include "config.h"
 
 #include <tvm/meta_schedule/database.h>
 #include <tvm/relax/transform.h>
@@ -21,8 +22,6 @@
 #include <sstream>
 #include <map>
 
-extern "C" int nw_cmdline(const char*, const char*);
-
 namespace tvm {
 namespace auto_cache {
 
@@ -33,93 +32,76 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
 }
 
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
+    // Load configs
+    std::string config_filename = this->path + "configs.json";
+    std::unique_ptr<Config> config = std::make_unique<Config>(config_filename);
+
     // Load dict
-    std::string filename = this->path + "dict.csv";
-    if(!std::filesystem::exists(filename)) {
-        std::cout << "File " << filename << " does not exist." << std::endl;
+    std::string dict_filename = this->path + "dict.csv";
+    if(!std::filesystem::exists(dict_filename)) {
+        std::cout << "File " << dict_filename << " does not exist." << std::endl;
         return;
     }
-    std::unique_ptr<Dict> dict = std::make_unique<Dict>(filename);
+    std::unique_ptr<Dict> dict = std::make_unique<Dict>(dict_filename);
 
+    // Convert mod to dna
     std::ostringstream oss;
     oss << mod.value();  // or oss << mod; if not Optional
     std::string mod_string = oss.str();
     std::unique_ptr<DNA> dna_obj = std::make_unique<DNA>(mod_string, move(dict));
-    std::string test_dna = dna_obj->DumpGene();
-    std::cout << "DNA: " << test_dna << std::endl;
+    std::string mod_dna = dna_obj->DumpGene();
 
-    int best_similarity = -100000;
-    std::string best_filename;
-    // Load cache
-    for (const auto& entry : std::filesystem::directory_iterator(this->path)) {
-        if (entry.is_regular_file()) {
-            std::string file_type = entry.path().filename().string().substr(0, 6);
-            if(file_type == "cachex") {
-                std::string file_path = this->path + entry.path().filename().string();
-                TaskData cache_data = read_log_file(file_path);
+    std::vector<std::string> files = config->GetCacheFiles(mod_dna);
 
-                int similarity_value = nw_cmdline(test_dna.c_str(), cache_data.dna.c_str());
-                if(similarity_value > best_similarity) {
-                    best_similarity = similarity_value;
-                    best_filename = file_path;
-                }
+    long unsigned int value = this->total_cache_size/files.size();
+    for(const std::string& file : files) {
+        TaskData cache_data = read_log_file(this->path + file);
+        tvm::relax::Trace trace{nullptr};
+        Optional<Array<FloatImm>> run_secs{nullptr};
+
+        for(long unsigned int i = 0; i < cache_data.space.size(); i++) {
+            std::string record_string = get_transformations(cache_data.space[i]);
+            Any json = JSONLoads(record_string);
+
+            const ObjectRef& json_obj = json.cast<ObjectRef>();
+            const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
+            if (!json_array || json_array->size() != 2) {
+                continue;
+            }
+
+            const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
+            const ffi::ArrayObj* decisions_array = decisions_ref.as<ffi::ArrayObj>();
+            if (!decisions_array || decisions_array->size() == 0) {
+                continue;
+            }
+
+            const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
+            tir::Schedule sch{nullptr};
+
+            try {
+                sch = tir::Schedule::Traced(
+                    mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+                    tir::ScheduleErrorRenderLevel::kNone
+                );
+                tir::Trace::ApplyJSONToSchedule(trace_json, sch);
+            } catch (...) {
+                continue;  // Skip invalid traces
+            }
+
+            if(sch.defined()) {
+                this->cache.push_back(sch);
+            }
+
+            if(this->cache.size() >= value) {
+                break;
             }
         }
-    }
-
-    TaskData cache_data = read_log_file(best_filename);
-    tvm::relax::Trace trace{nullptr};
-    Optional<Array<FloatImm>> run_secs{nullptr};
-
-    std::string record_string = get_transformations(cache_data.space[0]);
-    Any json = JSONLoads(record_string);
-
-    const ObjectRef& json_obj = json.cast<ObjectRef>();
-    const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
-    if (!json_array || json_array->size() != 2) {
-        //continue;
-        return;
-    }
-
-    const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
-    const ffi::ArrayObj* decisions_array = decisions_ref.as<ffi::ArrayObj>();
-    if (!decisions_array || decisions_array->size() == 0) {
-        //continue;
-        return;
-    }
-
-    const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
-    tir::Schedule sch{nullptr};
-
-    try {
-        sch = tir::Schedule::Traced(
-            mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-            tir::ScheduleErrorRenderLevel::kNone
-        );
-        tir::Trace::ApplyJSONToSchedule(trace_json, sch);
-        std::cout << "success..." << std::endl;
-    } catch (...) {
-        std::cout << "error..." << std::endl;
-        //continue;  // Skip invalid traces
-        return;
-    }
-
-    if(sch.defined()) {
-        this->cache.push_back(sch);
-    }
+    } 
 
     std::cout << "===================" << std::endl;
-    std::cout << "Best similarity: " << best_similarity << std::endl;
-    std::cout << "Test DNA: " << test_dna.size() << std::endl;
+    std::cout << "Test DNA: " << mod_dna << std::endl;
     std::cout << "cache size: " << this->cache.size() << std::endl;
     std::cout << "===================" << std::endl;
-
-    //std::cout << "==================\n";
-    //std::cout << task_name << std::endl;
-    //std::cout << hash << std::endl;
-    //std::cout << cache_file << std::endl;
-    //std::cout << "files size: " << data.size << std::endl;
-    //std::cout << "==================\n";
 }
 
 std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int num) {
