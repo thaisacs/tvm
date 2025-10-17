@@ -5,7 +5,7 @@
 namespace tvm {
 namespace auto_cache {
 
-std::vector<std::string> get_name_parts(std::string input) {
+std::vector<std::string> GetNameParts(std::string input) {
     std::vector<std::string> parts;
     size_t start = 0;
     size_t end = input.find('_');
@@ -20,9 +20,9 @@ std::vector<std::string> get_name_parts(std::string input) {
     return parts;
 }
 
-std::string get_hash(std::string task_name) {
+std::string GetHash(std::string task_name) {
     std::string hash = "";
-    std::vector parts = get_name_parts(task_name);
+    std::vector parts = GetNameParts(task_name);
     for(const auto& part: parts) {
         int end = part.size() - 1;
         for(int i = part.size() - 1; i >= 0; i--) {
@@ -50,7 +50,7 @@ std::string get_hash(std::string task_name) {
     return hash;
 }
 
-TaskData read_log_file(std::string log_file) {
+TaskData ReadLogFile(std::string log_file) {
     TaskData data;
     auto InputPBuffer = llvm::MemoryBuffer::getFile(log_file);
     llvm::yaml::Input yinp(InputPBuffer->get()->getBuffer());
@@ -58,7 +58,7 @@ TaskData read_log_file(std::string log_file) {
     return data;
 }
 
-std::string get_transformations(std::string state_str) {
+std::string GetTransformations(std::string state_str) {
     std::string state_new;
     for(long unsigned int i = 0; i < state_str.size(); i++) {
         if(state_str[i] == '\'') {
@@ -75,7 +75,7 @@ std::string get_transformations(std::string state_str) {
     return state_new;
 }
 
-Params read_params_file(std::string params_file) {
+Params ReadParamsFile(std::string params_file) {
     Params params;
     auto InputPBuffer = llvm::MemoryBuffer::getFile(params_file);
     llvm::yaml::Input yinp(InputPBuffer->get()->getBuffer());

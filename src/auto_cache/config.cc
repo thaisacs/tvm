@@ -6,7 +6,7 @@ using namespace tvm::auto_cache;
 
 extern "C" int nw_cmdline(const char*, const char*);
 
-void trim(std::string& s) {
+void Trim(std::string& s) {
     s.erase(std::remove(s.begin(), s.end(), '\t'), s.end());
     s.erase(std::remove(s.begin(), s.end(), '\n'), s.end());
     s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
@@ -25,17 +25,17 @@ Config::Config(std::string filename) {
     while (std::getline(file, line)) {
         // Remove leading/trailing whitespace
         std::string trimmed = line;
-        trim(trimmed);
+        Trim(trimmed);
 
         if (trimmed.empty() || trimmed == "{" || trimmed == "}") continue;
 
         if (trimmed.back() == ':') {
             // Key line
             currentKey = trimmed.substr(0, trimmed.size() - 1);
-            trim(currentKey);
+            Trim(currentKey);
         } else if (!currentKey.empty()) {
             // Value line
-            trim(trimmed);
+            Trim(trimmed);
             this->configs[currentKey].push_back(trimmed);
         }
     }

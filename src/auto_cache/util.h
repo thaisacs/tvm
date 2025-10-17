@@ -11,13 +11,13 @@
 namespace tvm {
 namespace auto_cache {
 
-std::string get_hash(std::string task_name);
+std::string GetHash(std::string task_name);
 
-TaskData read_log_file(std::string log_file);
+TaskData ReadLogFile(std::string log_file);
 
-Params read_params_file(std::string params_file);
+Params ReadParamsFile(std::string params_file);
 
-std::string get_transformations(std::string state_str);
+std::string GetTransformations(std::string state_str);
 
 }
 }

@@ -3,7 +3,7 @@
 using namespace tvm;
 using namespace tvm::auto_cache;
 
-std::vector<std::string> DNA::split(const std::string& str, const std::string& delimiter) {
+std::vector<std::string> DNA::Split(const std::string& str, const std::string& delimiter) {
     std::vector<std::string> tokens;
     size_t start = 0;
     size_t end;
@@ -17,7 +17,7 @@ std::vector<std::string> DNA::split(const std::string& str, const std::string& d
     return tokens;
 }
 
-std::vector<std::string> DNA::split(const std::string& str, char delimiter) {
+std::vector<std::string> DNA::Split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;
     std::stringstream ss(str);
     std::string item;
@@ -29,9 +29,9 @@ std::vector<std::string> DNA::split(const std::string& str, char delimiter) {
     return tokens;
 }
 
-std::string DNA::rename_block(std::string block_name) {
+std::string DNA::RenameBlock(std::string block_name) {
     std::string rename = "";
-    std::vector<std::string> parts = split(block_name, '_');
+    std::vector<std::string> parts = Split(block_name, '_');
     for(int i = 0; i < static_cast<int>(parts.size()); i++) {
         std::string part = parts[i];
         if(i > 1) {
@@ -55,7 +55,7 @@ std::string DNA::rename_block(std::string block_name) {
     return rename;
 }
 
-std::string DNA::dna_generator(std::vector<std::string> program_tokens, std::unique_ptr<Dict> dict) {
+std::string DNA::DNAGenerator(std::vector<std::string> program_tokens, std::unique_ptr<Dict> dict) {
     std::vector<std::string> results;
     for(int i = 0; i < static_cast<int>(program_tokens.size()); i++) {
         std::string token = program_tokens[i];
@@ -75,21 +75,21 @@ std::string DNA::dna_generator(std::vector<std::string> program_tokens, std::uni
     return dna;
 }
 
-std::string DNA::mod2dna(std::string mod_str, std::unique_ptr<Dict> dict) {
+std::string DNA::ConvertMod2DNA(std::string mod_str, std::unique_ptr<Dict> dict) {
     std::vector<std::string> program_tokens;
-    std::vector<std::string> lines = this->split(mod_str, '\n');
+    std::vector<std::string> lines = this->Split(mod_str, '\n');
     for(int i = 0; i < static_cast<int>(lines.size()); i++) {
         std::string line = lines[i];
         std::string main_sub = "main";
         std::string block_sub = "T.block(";
         std::string root = "root";
         if (line.find(main_sub) != std::string::npos) {
-            std::vector<std::string> values = this->split(line, ' ');
+            std::vector<std::string> values = this->Split(line, ' ');
             std::string int_sub = "T.int64";
             for(int j = 0; j < static_cast<int>(values.size()); j++) {
                 std::string value = values[j];
                 if(value.find(int_sub) != std::string::npos) {
-                    std::vector<std::string> value_parts = this->split(value, int_sub);
+                    std::vector<std::string> value_parts = this->Split(value, int_sub);
                     std::string shape = value_parts[1];
                     shape.erase(std::remove(shape.begin(), shape.end(), '('), shape.end());
                     shape.erase(std::remove(shape.begin(), shape.end(), ')'), shape.end());
@@ -99,22 +99,22 @@ std::string DNA::mod2dna(std::string mod_str, std::unique_ptr<Dict> dict) {
             }
         }
         if (line.find(block_sub) != std::string::npos and line.find(root) == std::string::npos) {
-            std::vector<std::string> x = this->split(line, ' ');
-            std::string block_name = this->split(x[x.size()-1], '(')[1];
-            block_name = this->split(block_name, ')')[0];
+            std::vector<std::string> x = this->Split(line, ' ');
+            std::string block_name = this->Split(x[x.size()-1], '(')[1];
+            block_name = this->Split(block_name, ')')[0];
             block_name.erase(std::remove(block_name.begin(), block_name.end(), '\"'), block_name.end());
             if(block_name.find("lv") != std::string::npos) {
                 block_name = "mean";
             }
-            block_name = this->rename_block(block_name);
-            program_tokens.push_back(this->rename_block(block_name));
+            block_name = this->RenameBlock(block_name);
+            program_tokens.push_back(this->RenameBlock(block_name));
         }
     }
-    return this->dna_generator(program_tokens, std::move(dict));
+    return this->DNAGenerator(program_tokens, std::move(dict));
 }
 
 DNA::DNA(std::string mod_str, std::unique_ptr<Dict> dict) {
-    this->gene = this->mod2dna(mod_str, std::move(dict));
+    this->gene = this->ConvertMod2DNA(mod_str, std::move(dict));
 }
 
 std::string DNA::DumpGene() {

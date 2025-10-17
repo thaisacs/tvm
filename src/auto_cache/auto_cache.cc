@@ -26,7 +26,7 @@ namespace tvm {
 namespace auto_cache {
 
 TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
-    Params params = read_params_file(params_file);
+    Params params = ReadParamsFile(params_file);
     this->path = params.path;
     this->total_cache_size = params.total_cache_size;
 }
@@ -55,12 +55,12 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
 
     long unsigned int value = this->total_cache_size/files.size();
     for(const std::string& file : files) {
-        TaskData cache_data = read_log_file(this->path + file);
+        TaskData cache_data = ReadLogFile(this->path + file);
         tvm::relax::Trace trace{nullptr};
         Optional<Array<FloatImm>> run_secs{nullptr};
 
         for(long unsigned int i = 0; i < cache_data.space.size(); i++) {
-            std::string record_string = get_transformations(cache_data.space[i]);
+            std::string record_string = GetTransformations(cache_data.space[i]);
             Any json = JSONLoads(record_string);
 
             const ObjectRef& json_obj = json.cast<ObjectRef>();
