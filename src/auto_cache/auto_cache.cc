@@ -32,6 +32,7 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
 }
 
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
+    std::cout << "Loading cache for task: " << task_name << std::endl;
     // Load configs
     std::string config_filename = this->path + "configs.json";
     std::unique_ptr<Config> config = std::make_unique<Config>(config_filename);
@@ -52,6 +53,11 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     std::string mod_dna = dna_obj->DumpGene();
 
     std::vector<std::string> files = config->GetCacheFiles(mod_dna);
+
+    if(files.size() == 0) {
+        std::cout << "No similar cache files found for DNA: " << mod_dna << std::endl;
+        return;
+    }
 
     long unsigned int value = this->total_cache_size/files.size();
     for(const std::string& file : files) {
