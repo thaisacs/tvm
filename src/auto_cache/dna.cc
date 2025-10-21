@@ -58,17 +58,23 @@ std::string DNA::RenameBlock(std::string block_name) {
 
 std::string DNA::DNAGenerator(std::vector<std::string> program_tokens, std::unique_ptr<Dict> dict) {
     std::vector<std::string> results;
-    for(int i = 0; i < static_cast<int>(program_tokens.size()); i++) {
+    std::string buffer;
+    for(long unsigned int i = 0; i < program_tokens.size(); i++) {
         std::string token = program_tokens[i];
         if(dict->Has(token)) {
-            token = dict->FindToken(token);
+            buffer = dict->FindToken(token);
         }else {
-            token = "-";
+            buffer = "-";
         }
-        results.push_back(token);
+        if(i == program_tokens.size() - 1) {
+            for(long unsigned int j = 0; j < program_tokens.size(); j++) {
+                results.push_back(buffer);
+            }
+        }else {
+            results.push_back(buffer);
+        }
     }
     std::string dna = "";
-    std::string buffer;
     for(int i = 0; i < static_cast<int>(results.size()); i++) {
         buffer = results[i];
         dna += buffer;
