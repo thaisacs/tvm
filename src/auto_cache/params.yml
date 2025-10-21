@@ -4,6 +4,6 @@
 #   |_|    \_\_/_/  |_| |_| |_|   |_|____ |_|  |_| |_|____ |_|  |_| |_|____ 
 #                                                                           
 
-CachePath: "/home/thais/Dev/dna-cache/cache_v1/"
+CachePath: "/home/thais/Dev/dna-cache/cache_v2/cache-densenet_121-alexnet/"
 
 TotalCacheSize: 500

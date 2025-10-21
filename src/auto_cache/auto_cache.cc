@@ -49,7 +49,7 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     std::ostringstream oss;
     oss << mod.value();  // or oss << mod; if not Optional
     std::string mod_string = oss.str();
-    std::unique_ptr<DNA> dna_obj = std::make_unique<DNA>(mod_string, move(dict));
+    std::unique_ptr<DNA> dna_obj = std::make_unique<DNA>(mod_string, move(dict), task_name);
     std::string mod_dna = dna_obj->DumpGene();
 
     std::vector<std::string> files = config->GetCacheFiles(mod_dna);

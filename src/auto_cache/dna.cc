@@ -1,4 +1,5 @@
 #include "dna.h"
+#include "util.h"
 
 using namespace tvm;
 using namespace tvm::auto_cache;
@@ -75,7 +76,7 @@ std::string DNA::DNAGenerator(std::vector<std::string> program_tokens, std::uniq
     return dna;
 }
 
-std::string DNA::ConvertMod2DNA(std::string mod_str, std::unique_ptr<Dict> dict) {
+std::string DNA::ConvertMod2DNA(std::string mod_str, std::unique_ptr<Dict> dict, std::string task_name) {
     std::vector<std::string> program_tokens;
     std::vector<std::string> lines = this->Split(mod_str, '\n');
     for(int i = 0; i < static_cast<int>(lines.size()); i++) {
@@ -98,23 +99,25 @@ std::string DNA::ConvertMod2DNA(std::string mod_str, std::unique_ptr<Dict> dict)
                 }
             }
         }
-        if (line.find(block_sub) != std::string::npos and line.find(root) == std::string::npos) {
-            std::vector<std::string> x = this->Split(line, ' ');
-            std::string block_name = this->Split(x[x.size()-1], '(')[1];
-            block_name = this->Split(block_name, ')')[0];
-            block_name.erase(std::remove(block_name.begin(), block_name.end(), '\"'), block_name.end());
-            if(block_name.find("lv") != std::string::npos) {
-                block_name = "mean";
-            }
-            block_name = this->RenameBlock(block_name);
-            program_tokens.push_back(this->RenameBlock(block_name));
-        }
+        //if (line.find(block_sub) != std::string::npos and line.find(root) == std::string::npos) {
+        //    std::vector<std::string> x = this->Split(line, ' ');
+        //    std::string block_name = this->Split(x[x.size()-1], '(')[1];
+        //    block_name = this->Split(block_name, ')')[0];
+        //    block_name.erase(std::remove(block_name.begin(), block_name.end(), '\"'), block_name.end());
+        //    if(block_name.find("lv") != std::string::npos) {
+        //        block_name = "mean";
+        //    }
+        //    block_name = this->RenameBlock(block_name);
+        //    program_tokens.push_back(this->RenameBlock(block_name));
+        //}
     }
+    std::string op = GetHash(task_name);
+    program_tokens.push_back(op);
     return this->DNAGenerator(program_tokens, std::move(dict));
 }
 
-DNA::DNA(std::string mod_str, std::unique_ptr<Dict> dict) {
-    this->gene = this->ConvertMod2DNA(mod_str, std::move(dict));
+DNA::DNA(std::string mod_str, std::unique_ptr<Dict> dict, std::string task_name) {
+    this->gene = this->ConvertMod2DNA(mod_str, std::move(dict), task_name);
 }
 
 std::string DNA::DumpGene() {
