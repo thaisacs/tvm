@@ -32,7 +32,6 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
 }
 
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
-    std::cout << "Loading cache for task: " << task_name << std::endl;
     // Load configs
     std::string config_filename = this->path + "configs.json";
     std::unique_ptr<Config> config = std::make_unique<Config>(config_filename);
@@ -52,62 +51,69 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
     std::unique_ptr<DNA> dna_obj = std::make_unique<DNA>(mod_string, move(dict), task_name);
     std::string mod_dna = dna_obj->DumpGene();
 
-    std::vector<std::string> files = config->GetCacheFiles(mod_dna);
+    std::vector<Item> files = config->GetCacheFiles(mod_dna);
 
     if(files.size() == 0) {
         std::cout << "No similar cache files found for DNA: " << mod_dna << std::endl;
         return;
     }
 
-    long unsigned int value = this->total_cache_size/files.size();
-    for(const std::string& file : files) {
-        TaskData cache_data = ReadLogFile(this->path + file);
-        tvm::relax::Trace trace{nullptr};
-        Optional<Array<FloatImm>> run_secs{nullptr};
-
-        for(long unsigned int i = 0; i < cache_data.space.size(); i++) {
-            std::string record_string = GetTransformations(cache_data.space[i]);
-            Any json = JSONLoads(record_string);
-
-            const ObjectRef& json_obj = json.cast<ObjectRef>();
-            const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
-            if (!json_array || json_array->size() != 2) {
-                continue;
-            }
-
-            const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
-            const ffi::ArrayObj* decisions_array = decisions_ref.as<ffi::ArrayObj>();
-            if (!decisions_array || decisions_array->size() == 0) {
-                continue;
-            }
-
-            const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
-            tir::Schedule sch{nullptr};
-
-            try {
-                sch = tir::Schedule::Traced(
-                    mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-                    tir::ScheduleErrorRenderLevel::kNone
-                );
-                tir::Trace::ApplyJSONToSchedule(trace_json, sch);
-            } catch (...) {
-                continue;  // Skip invalid traces
-            }
-
-            if(sch.defined()) {
-                this->cache.push_back(sch);
-            }
-
-            if(this->cache.size() >= value) {
-                break;
-            }
+    //long unsigned int value = this->total_cache_size/files.size();
+    //while(this->cache.size() < this->total_cache_size) {
+    for(const Item& item : files) {
+        if(item.id < 0) {
+            break;
         }
-    } 
+        for(const std::string& file : item.files) {
+            TaskData cache_data = ReadLogFile(this->path + file);
+            tvm::relax::Trace trace{nullptr};
+            Optional<Array<FloatImm>> run_secs{nullptr};
 
-    std::cout << "===================" << std::endl;
-    std::cout << "Test DNA: " << mod_dna << std::endl;
-    std::cout << "cache size: " << this->cache.size() << std::endl;
-    std::cout << "===================" << std::endl;
+            for(long unsigned int i = 0; i < cache_data.space.size(); i++) {
+                std::string record_string = GetTransformations(cache_data.space[i]);
+                Any json = JSONLoads(record_string);
+
+                const ObjectRef& json_obj = json.cast<ObjectRef>();
+                const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
+                if (!json_array || json_array->size() != 2) {
+                    continue;
+                }
+
+                const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
+                const ffi::ArrayObj* decisions_array = decisions_ref.as<ffi::ArrayObj>();
+                if (!decisions_array || decisions_array->size() == 0) {
+                    continue;
+                }
+
+                const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
+                tir::Schedule sch{nullptr};
+
+                try {
+                    sch = tir::Schedule::Traced(
+                        mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+                        tir::ScheduleErrorRenderLevel::kNone
+                    );
+                    tir::Trace::ApplyJSONToSchedule(trace_json, sch);
+                } catch (...) {
+                    continue;  // Skip invalid traces
+                }
+
+                if(sch.defined()) {
+                    this->cache.push_back(sch);
+                }
+
+                if(this->cache.size() >= this->total_cache_size) {
+                    goto out;
+                }
+            }
+        } 
+    }
+    //}
+    out:
+        std::cout << "===================" << std::endl;
+        std::cout << "Test DNA: " << mod_dna << std::endl;
+        std::cout << "cache size: " << this->cache.size() << std::endl;
+        std::cout << "===================" << std::endl;
 }
 
 std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int num) {

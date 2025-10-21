@@ -18,7 +18,7 @@ namespace auto_cache {
         std::unordered_map<std::string, std::vector<std::string>> configs;
     public:
         Config(std::string filename);
-        std::vector<std::string> GetCacheFiles(std::string mod_dna);
+        std::vector<Item> GetCacheFiles(std::string mod_dna);
     };
 }
 }

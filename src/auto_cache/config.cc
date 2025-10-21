@@ -41,25 +41,15 @@ Config::Config(std::string filename) {
     }
 }
 
-std::vector<std::string> Config::GetCacheFiles(std::string mod_dna) {
-    int similarity_value, best_similarity = -100000;
-    std::string best_dna;
-    std::vector<std::string> results;
+std::vector<Item> Config::GetCacheFiles(std::string mod_dna) {
+    std::vector<Item> results;
+    int similarity_value;
     for (const auto& kv : this->configs) {
         std::string dna = kv.first;
         similarity_value = nw_cmdline(mod_dna.c_str(), dna.c_str());
-        if(similarity_value > best_similarity) {
-            best_similarity = similarity_value;
-            best_dna = dna;
-            results = kv.second;
-        }
+        results.push_back({similarity_value, kv.second});
     }
-    std::cout << "==============================\n";
-    std::cout << "Best similarity: " << best_similarity << std::endl;
-    std::cout << mod_dna.size() << " vs " << best_similarity << std::endl;
-    std::cout << mod_dna << std::endl;
-    std::cout << best_dna << std::endl;
-    std::cout << "==============================\n";
+    std::sort(results.begin(), results.end());
     return results;
 }
 
