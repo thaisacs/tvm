@@ -58,13 +58,11 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
         return;
     }
 
-    //long unsigned int value = this->total_cache_size/files.size();
-    //while(this->cache.size() < this->total_cache_size) {
     for(const Item& item : files) {
-        if(item.id < 0) {
-            break;
-        }
         for(const std::string& file : item.files) {
+            if(this->cache.size() >= this->total_cache_size) {
+                break;
+            }
             TaskData cache_data = ReadLogFile(this->path + file);
             tvm::relax::Trace trace{nullptr};
             Optional<Array<FloatImm>> run_secs{nullptr};
@@ -101,19 +99,13 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
                 if(sch.defined()) {
                     this->cache.push_back(sch);
                 }
-
-                if(this->cache.size() >= this->total_cache_size) {
-                    goto out;
-                }
             }
         } 
     }
-    //}
-    out:
-        std::cout << "===================" << std::endl;
-        std::cout << "Test DNA: " << mod_dna << std::endl;
-        std::cout << "cache size: " << this->cache.size() << std::endl;
-        std::cout << "===================" << std::endl;
+    std::cout << "===================" << std::endl;
+    std::cout << "Test DNA: " << mod_dna << std::endl;
+    std::cout << "cache size: " << this->cache.size() << std::endl;
+    std::cout << "===================" << std::endl;
 }
 
 std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int num) {
@@ -123,7 +115,6 @@ std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int n
     for (int idx = 0; idx < num; idx++) {
         candidates.push_back(this->cache[idx]);
     }
-    std::cout << "candidates size: " << candidates.size() << std::endl;
     return std::move(candidates);
 }
 

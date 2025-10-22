@@ -67,7 +67,7 @@ std::string DNA::DNAGenerator(std::vector<std::string> program_tokens, std::uniq
             buffer = "-";
         }
         if(i == program_tokens.size() - 1) {
-            for(long unsigned int j = 0; j < program_tokens.size(); j++) {
+            for(long unsigned int j = 0; j < 2*program_tokens.size(); j++) {
                 results.push_back(buffer);
             }
         }else {

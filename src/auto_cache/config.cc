@@ -47,9 +47,17 @@ std::vector<Item> Config::GetCacheFiles(std::string mod_dna) {
     for (const auto& kv : this->configs) {
         std::string dna = kv.first;
         similarity_value = nw_cmdline(mod_dna.c_str(), dna.c_str());
-        results.push_back({similarity_value, kv.second});
+        if(similarity_value > 0) {
+            results.push_back({similarity_value, kv.second});
+        }
     }
     std::sort(results.begin(), results.end());
+    std::cout << "==============================\n";
+    if(results.size() > 0) {
+        std::cout << mod_dna.size() << std::endl;
+        std::cout << results[0].id << std::endl;
+    }
+    std::cout << "==============================\n";
     return results;
 }
 
