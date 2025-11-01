@@ -28,6 +28,12 @@
 
 #include "../src/meta_schedule/module_equality.h"
 #include "../src/meta_schedule/trace_apply.h"
+#include "../src/meta_schedule/utils.h"
+
+#include "auto_cache/dna.h"
+#include "auto_cache/util.h"
+#include "auto_cache/dict.h"
+#include "auto_cache/config.h"
 
 namespace tvm {
 namespace relax {
@@ -72,6 +78,121 @@ class MetaScheduleTuner {
   ffi::Map<ffi::String, runtime::Tensor> params_;
   tvm::ffi::Function normalize_mod_func_;
 };
+
+Pass MetaScheduleApplyTGC(std::string subgraph_cache, bool enable_warning = false) {
+  Target target = Target::Current(false);
+  const std::optional<tvm::ffi::Function> normalize_mod_func_ =
+      tvm::ffi::Function::GetGlobalRequired("tvm.meta_schedule.normalize_mod");
+
+  auto pass_func = [=](IRModule mod, PassContext ctx) {
+    auto_cache::Params params = auto_cache::ReadParamsFile(subgraph_cache);
+
+    // Load configs
+    std::string config_filename = params.path + "configs.json";
+    std::unique_ptr<auto_cache::Config> config = std::make_unique<auto_cache::Config>(config_filename);
+
+    // Load dict
+    std::string dict_filename = params.path + "dict.csv";
+    if(!std::filesystem::exists(dict_filename)) {
+        std::cout << "File " << dict_filename << " does not exist." << std::endl;
+        // return; TODO
+    }
+    std::shared_ptr<auto_cache::Dict> dict = std::make_shared<auto_cache::Dict>(dict_filename);
+
+    std::cout << "Applying MetaSchedule TGC..." << std::endl;
+    ffi::Map<GlobalVar, BaseFunc> result;
+    auto mod_eq_structural = meta_schedule::ModuleEquality::Create("ignore-tensor");
+    for (const auto& iter : mod->functions) {
+      GlobalVar gv = iter.first;
+      BaseFunc base_func = iter.second;
+      if (const auto* prim_func_node = base_func.as<tir::PrimFuncNode>()) {
+        tir::PrimFunc prim_func = ffi::GetRef<tir::PrimFunc>(prim_func_node);
+
+        ffi::Optional<IRModule> tir_mod = (*normalize_mod_func_)(prim_func).cast<ffi::Optional<IRModule>>();
+
+        // Convert mod to dna
+        std::ostringstream oss;
+        oss << tir_mod.value();  // or oss << mod; if not Optional
+        std::string mod_string = oss.str();
+
+        std::unique_ptr<auto_cache::DNA> dna_obj = std::make_unique<auto_cache::DNA>(mod_string, dict, gv->name_hint);
+        std::string mod_dna = dna_obj->DumpGene();
+
+        std::vector<auto_cache::Item> files = config->GetCacheFiles(mod_dna);
+
+        if(files.size() == 0) {
+            std::cout << "No similar cache files found for DNA: " << mod_dna << std::endl;
+            //return;
+        }
+
+        bool tuned = false;
+        for(const auto_cache::Item& item : files) {
+          if(!tuned) {
+            for(const std::string& file : item.files) {
+              auto_cache::TaskData cache_data = auto_cache::ReadLogFile(params.path + file);
+              if(cache_data.space.size()) {
+                std::string record_string = auto_cache::GetTransformations(cache_data.space[0]);
+                Any json = tvm::meta_schedule::JSONLoads(record_string);
+
+                const ObjectRef& json_obj = json.cast<ObjectRef>();
+                const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
+                if (!json_array || json_array->size() != 2) {
+                    continue;
+                }
+
+                const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
+                const ffi::ArrayObj* decisions_array = decisions_ref.as<ffi::ArrayObj>();
+                if (!decisions_array || decisions_array->size() == 0) {
+                    continue;
+                }
+
+                const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
+                tir::Schedule sch{nullptr};
+
+                try {
+                    sch = tir::Schedule::Traced(
+                        tir_mod.value(), /*seed=*/-1, /*debug_mask=*/0,
+                        tir::ScheduleErrorRenderLevel::kNone
+                    );
+                    tir::Trace::ApplyJSONToSchedule(trace_json, sch);
+                } catch (...) {
+                    continue;  // Skip invalid traces
+                }
+
+                if(sch.defined()) {
+                  std::cout << "done\n" << std::endl;
+                  IRModule new_mod = sch->mod();
+                  ICHECK_EQ(new_mod->functions.size(), 1);
+                  BaseFunc new_base_func = (*new_mod->functions.begin()).second;
+                  ICHECK(new_base_func->IsInstance<tir::PrimFuncNode>());
+                  tir::PrimFunc tuned_prim_func = Downcast<tir::PrimFunc>(new_base_func);
+                  // maintain the original attributes
+                  tir::PrimFunc new_prim_func = tir::PrimFunc(/*params=*/tuned_prim_func->params,
+                                                              /*body=*/tuned_prim_func->body,
+                                                              /*ret_type=*/tuned_prim_func->ret_type,
+                                                              /*buffer_map=*/tuned_prim_func->buffer_map,
+                                                              /*attrs=*/prim_func->attrs);
+                  new_prim_func = WithAttr(std::move(new_prim_func), tir::attr::kIsScheduled, true);
+                  result.Set(gv, new_prim_func);
+                  tuned = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if(tuned) {
+            continue;
+        }
+      }
+      result.Set(gv, base_func);
+    }
+    return IRModule(result,       // functions
+                    {},           // map
+                    mod->attrs);  // attrs);
+    };
+  return CreateModulePass(pass_func, 0, "MetaScheduleApplyTGC", {});
+}
 
 Pass MetaScheduleApplyDatabase(ffi::Optional<ffi::String> work_dir, bool enable_warning = false) {
   using tvm::meta_schedule::Database;
@@ -182,6 +303,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef()
       .def("relax.transform.MetaScheduleApplyDatabase", MetaScheduleApplyDatabase)
+      .def("relax.transform.MetaScheduleApplyTGC", MetaScheduleApplyTGC)
       .def("relax.transform.MetaScheduleTuneIRMod", MetaScheduleTuneIRMod)
       .def("relax.transform.MetaScheduleTuneTIR", MetaScheduleTuneTIR);
 }

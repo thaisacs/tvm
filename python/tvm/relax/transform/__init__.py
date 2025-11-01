@@ -59,6 +59,7 @@ from .transform import (
     LowerRuntimeBuiltin,
     MergeCompositeFunctions,
     MetaScheduleApplyDatabase,
+    MetaScheduleApplyTGC,
     MetaScheduleTuneIRMod,
     MetaScheduleTuneTIR,
     Normalize,

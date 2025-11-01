@@ -1181,7 +1181,6 @@ def RealizeVDevice() -> tvm.ir.transform.Pass:
 
     return _ffi_api.RealizeVDevice()  # type: ignore
 
-
 def MetaScheduleApplyDatabase(
     work_dir: Optional[str] = None, enable_warning: bool = False
 ) -> tvm.ir.transform.Pass:
@@ -1202,6 +1201,27 @@ def MetaScheduleApplyDatabase(
         The registered pass
     """
     return _ffi_api.MetaScheduleApplyDatabase(work_dir, enable_warning)  # type: ignore
+
+def MetaScheduleApplyTGC(
+    subgraph_cache: Optional[str] = None, enable_warning: bool = False
+) -> tvm.ir.transform.Pass:
+    """Apply the best schedule from cache.
+
+    Parameters
+    ----------
+    subgraph_cache : Optional[str]
+       work directory to deduce default database if database is not provided
+       (it will be ignored when an user passes database)
+    enable_warning : bool
+        A boolean value indicating if to print warnings for TIR functions not
+        showing up in the database. By default we don't print warning.
+
+    Returns
+    -------
+    ret : tvm.transform.Pass
+        The registered pass
+    """
+    return _ffi_api.MetaScheduleApplyTGC(subgraph_cache, enable_warning)  # type: ignore
 
 
 def MetaScheduleTuneTIR(

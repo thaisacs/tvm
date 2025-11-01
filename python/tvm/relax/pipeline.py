@@ -190,6 +190,84 @@ def static_shape_tuning_pipeline(
 
     return _pipeline
 
+def static_shape_tgc_pipeline(
+    total_trials: int,
+    target: Union[str, tvm.target.Target],
+    subgraph_cache: str = "tuning_logs",
+    cpu_weight_prepack: bool = False,
+):
+    """Tune the static shape model and store the log to database.
+
+    Parameters
+    ----------
+    total_trials : int
+        Total number of trials to run.
+
+    target : Union[str, tvm.target.Target]
+        The target device to tune the model.
+
+    work_dir : str
+        The directory to store the tuning logs.
+
+    cpu_weight_prepack : bool
+        Whether to enable the cpu weight prepack feature.
+
+    Note
+    ----
+    `cpu_weight_prepack` is expected to be `True` when running on CPU for
+    better performance. However, it requires an explicit layout transformation
+    step by calling the corresponding vm function, which changes the interface
+    of deployment. So we disable it by default. Here is an example to enable it:
+
+    .. code-block:: python
+
+        mod = relax.pipeline.static_shape_tuning_pipeline(
+            total_trials=1000,
+            target="llvm -num-cores 16",
+            work_dir="tuning_logs",
+            cpu_weight_prepack=True,
+        )(mod)
+
+        ex = tvm.compile(mod, target=target)
+        vm = relax.VirtualMachine(ex, device=tvm.cpu())
+
+        # Transform the params using the vm function
+        # the name should be f"{func_name}_transform_params"
+        params = vm["main_transform_params"](params["main"])
+
+        input_data = tvm.runtime.tensor(np.random.randn(1, 3, 224, 224).astype("float32"))
+        out = vm["main"](input_data, *params).numpy()
+    """
+
+    @tvm.transform.module_pass(opt_level=0)
+    def _pipeline(mod: tvm.ir.IRModule, _ctx: tvm.transform.PassContext) -> tvm.ir.IRModule:
+        if cpu_weight_prepack:
+            pre_tuning_layout_rewrite = [transform.AttachAttrLayoutFreeBuffers()]
+            post_tuning_layout_rewrite = [
+                transform.SplitLayoutRewritePreproc(),
+                transform.LiftTransformParams(),
+                transform.FoldConstant(),
+            ]
+        else:
+            pre_tuning_layout_rewrite = []
+            post_tuning_layout_rewrite = []
+
+        with tvm.target.Target(target):
+            mod = tvm.transform.Sequential(
+                [
+                    transform.DecomposeOpsForInference(),
+                    transform.CanonicalizeBindings(),
+                    zero_pipeline(),
+                    *pre_tuning_layout_rewrite,
+                    tvm.transform.Sequential([]),
+                    transform.MetaScheduleApplyTGC(subgraph_cache),
+                    *post_tuning_layout_rewrite,
+                ]
+            )(mod)
+
+        return mod
+
+    return _pipeline
 
 # global map of pre-built pipelines
 PIPELINE_MAP = {
@@ -197,6 +275,7 @@ PIPELINE_MAP = {
     "default": default_build_pipeline,
     "default_build": default_build_pipeline,
     "static_shape_tuning": static_shape_tuning_pipeline,
+    "static_shape_tgc": static_shape_tgc_pipeline,
 }
 
 
