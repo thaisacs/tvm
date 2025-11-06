@@ -54,8 +54,9 @@ std::vector<Item> Config::GetCacheFiles(std::string mod_dna) {
     std::sort(results.begin(), results.end());
     std::cout << "==============================\n";
     if(results.size() > 0) {
-        std::cout << mod_dna.size() << std::endl;
-        std::cout << results[0].id << std::endl;
+        std::cout << "Cache TGC: " << static_cast<float>(results[0].id) / mod_dna.size() << std::endl;
+    }else {
+        std::cout << "Cache TGC: -1" << std::endl;
     }
     std::cout << "==============================\n";
     return results;
