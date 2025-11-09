@@ -95,7 +95,12 @@ void RunTask(ffi::Array<meta_schedule::TuneContext> ctxs,
         if (result->run_secs.defined()) {
             auto run_secs = result->run_secs.value();  // extract the Array<FloatImm>
             if (!run_secs.empty()) {
-                std::cout << "First run time: " << run_secs[0]->value << " seconds" << std::endl;
+		double sum = 0.0;
+    		for (const auto& rt : run_secs) {
+    		    sum += rt->value;
+    		}
+    		double average = sum / run_secs.size();
+		std::cout << "Runtime: " << average << " seconds" << std::endl;
             } else {
                 std::cout << "No run times recorded." << std::endl;
             }
