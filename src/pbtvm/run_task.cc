@@ -40,8 +40,6 @@ void RunTask(ffi::Array<meta_schedule::TuneContext> ctxs,
              meta_schedule::Builder builder) {
     const meta_schedule::TuneContext& ctx = ctxs[0];
 
-    std::cout << "Running PBTVM Task: " << ctx->task_name << std::endl;
-
     std::string record_string = get_transformations(ssch);
     Any json = meta_schedule::JSONLoads(record_string);
 
@@ -52,14 +50,14 @@ void RunTask(ffi::Array<meta_schedule::TuneContext> ctxs,
         return;
     }
 
-    const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();;
+    const ObjectRef& decisions_ref = json_array->at(1).cast<ObjectRef>();
     const ffi::ArrayObj*  decisions_array = decisions_ref.as<ffi::ArrayObj>();
     if (!decisions_array || decisions_array->size() == 0) {
         std::cout << "No decisions found!" << std::endl;
         return;
     }
 
-    const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();;
+    const ObjectRef& trace_json = decisions_array->at(0).cast<ObjectRef>();
 
     tir::Schedule sch{nullptr};
     try {
@@ -73,6 +71,12 @@ void RunTask(ffi::Array<meta_schedule::TuneContext> ctxs,
         return;
     }
 
+    //std::cout << "=== Original Module ===" << std::endl;
+    //std::cout << ctx->mod.value() << std::endl;
+    //std::cout << "=== Transformed Module ===" << std::endl;
+    //std::cout << sch->mod() << std::endl;
+    //std::cout << "========================" << std::endl;
+
     if(sch.defined()) {
         std::cout << "Transformed Schedule done... " << std::endl;
 
@@ -84,23 +88,28 @@ void RunTask(ffi::Array<meta_schedule::TuneContext> ctxs,
         ffi::Array<meta_schedule::BuilderResult> builder_results = builder->Build(builder_inputs);
         const meta_schedule::MeasureCandidate& candidate = meta_schedule::MeasureCandidate(sch, meta_schedule::ArgInfo::FromEntryFunc(sch->mod(), /*remove_preproc=*/true));
         const meta_schedule::BuilderResult& builder_result = builder_results[0];
+        if (builder_result->error_msg.has_value()) {
+            return;
+        }
         ffi::Array<meta_schedule::RunnerInput> runner_inputs;
         runner_inputs.push_back(meta_schedule::RunnerInput(/*artifact_path=*/builder_result->artifact_path.value(),
                                     /*device_type=*/target->kind->name,
                                     /*args_info=*/candidate->args_info));
-        ffi::Array<meta_schedule::RunnerFuture> futures = runner->Run(runner_inputs);
         std::cout << "Running on Runner..." << std::endl;
+        ffi::Array<meta_schedule::RunnerFuture> futures = runner->Run(runner_inputs);
+        if (builder_result->error_msg.has_value()) {
+            return;
+        }
         auto result = futures[0]->Result();
-        // `run_secs` is an Optional<Array<FloatImm>>
         if (result->run_secs.defined()) {
             auto run_secs = result->run_secs.value();  // extract the Array<FloatImm>
             if (!run_secs.empty()) {
-		double sum = 0.0;
-    		for (const auto& rt : run_secs) {
-    		    sum += rt->value;
-    		}
-    		double average = sum / run_secs.size();
-		std::cout << "Runtime: " << average << " seconds" << std::endl;
+		        double sum = 0.0;
+    		    for (const auto& rt : run_secs) {
+    		        sum += rt->value;
+    		    }
+    		    double average = sum / run_secs.size();
+		        std::cout << "Runtime: " << average << " seconds" << std::endl;
             } else {
                 std::cout << "No run times recorded." << std::endl;
             }
