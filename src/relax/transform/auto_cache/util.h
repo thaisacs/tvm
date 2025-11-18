@@ -29,5 +29,11 @@ Params ReadParamsFile(std::string params_file);
 
 std::string GetTransformations(std::string state_str);
 
+std::string FixParams(std::string task_name, std::string mod_str, std::string record_string);
+
+std::vector<std::string> Split(const std::string& str, const std::string& delimiter);
+
+std::vector<std::string> Split(const std::string& str, char delimiter);
+
 }
 }

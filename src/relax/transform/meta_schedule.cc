@@ -129,11 +129,16 @@ Pass MetaScheduleApplyTGC(std::string subgraph_cache, bool enable_warning = fals
         for(const auto_cache::Item& item : files) {
           if(!tuned) {
             for(const std::string& file : item.files) {
+              if(tuned) {
+                  break;
+              }
               auto_cache::TaskData cache_data = auto_cache::ReadLogFile(params.path + file);
-              if(cache_data.space.size()) {
-                std::string record_string = auto_cache::GetTransformations(cache_data.space[0]);
-                Any json = tvm::meta_schedule::JSONLoads(record_string);
+              for(const std::string& state_str : cache_data.space) {
+                std::string record_string = auto_cache::GetTransformations(state_str);
+                std::cout << gv->name_hint << ": Applying cache from file " << file << std::endl;
+                std::string record_string_fixed = auto_cache::FixParams(gv->name_hint, mod_string, record_string);
 
+                Any json = tvm::meta_schedule::JSONLoads(record_string_fixed);
                 const ObjectRef& json_obj = json.cast<ObjectRef>();
                 const ffi::ArrayObj* json_array = json_obj.as<ffi::ArrayObj>();
                 if (!json_array || json_array->size() != 2) {
@@ -156,6 +161,7 @@ Pass MetaScheduleApplyTGC(std::string subgraph_cache, bool enable_warning = fals
                     );
                     tir::Trace::ApplyJSONToSchedule(trace_json, sch);
                 } catch (...) {
+                    std::cout << "Failed to apply trace to schedule for file: " << file << std::endl;
                     continue;  // Skip invalid traces
                 }
 
@@ -178,8 +184,10 @@ Pass MetaScheduleApplyTGC(std::string subgraph_cache, bool enable_warning = fals
                   break;
                 }
               }
+              break;
             }
           }
+          break;
         }
         if(tuned) {
             continue;

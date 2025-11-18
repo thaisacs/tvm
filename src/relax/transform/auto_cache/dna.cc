@@ -4,32 +4,6 @@
 using namespace tvm;
 using namespace tvm::auto_cache;
 
-std::vector<std::string> DNA::Split(const std::string& str, const std::string& delimiter) {
-    std::vector<std::string> tokens;
-    size_t start = 0;
-    size_t end;
-
-    while ((end = str.find(delimiter, start)) != std::string::npos) {
-        tokens.push_back(str.substr(start, end - start));
-        start = end + delimiter.length();
-    }
-
-    tokens.push_back(str.substr(start));  // last token
-    return tokens;
-}
-
-std::vector<std::string> DNA::Split(const std::string& str, char delimiter) {
-    std::vector<std::string> tokens;
-    std::stringstream ss(str);
-    std::string item;
-
-    while (std::getline(ss, item, delimiter)) {
-        tokens.push_back(item);
-    }
-
-    return tokens;
-}
-
 std::string DNA::RenameBlock(std::string block_name) {
     std::string rename = "";
     std::vector<std::string> parts = Split(block_name, '_');
@@ -84,19 +58,19 @@ std::string DNA::DNAGenerator(std::vector<std::string> program_tokens, std::shar
 
 std::string DNA::ConvertMod2DNA(std::string mod_str, std::shared_ptr<Dict> dict, std::string task_name) {
     std::vector<std::string> program_tokens;
-    std::vector<std::string> lines = this->Split(mod_str, '\n');
+    std::vector<std::string> lines = Split(mod_str, '\n');
     for(int i = 0; i < static_cast<int>(lines.size()); i++) {
         std::string line = lines[i];
         std::string main_sub = "main";
         std::string block_sub = "T.block(";
         std::string root = "root";
         if (line.find(main_sub) != std::string::npos) {
-            std::vector<std::string> values = this->Split(line, ' ');
+            std::vector<std::string> values = Split(line, ' ');
             std::string int_sub = "T.int64";
             for(int j = 0; j < static_cast<int>(values.size()); j++) {
                 std::string value = values[j];
                 if(value.find(int_sub) != std::string::npos) {
-                    std::vector<std::string> value_parts = this->Split(value, int_sub);
+                    std::vector<std::string> value_parts = Split(value, int_sub);
                     std::string shape = value_parts[1];
                     shape.erase(std::remove(shape.begin(), shape.end(), '('), shape.end());
                     shape.erase(std::remove(shape.begin(), shape.end(), ')'), shape.end());
