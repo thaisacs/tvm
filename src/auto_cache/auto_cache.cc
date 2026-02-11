@@ -13,6 +13,13 @@
 #include "../meta_schedule/trace_apply.h"
 #include "../meta_schedule/utils.h"
 
+
+#include <optional>
+#include <tvm/ir/expr.h>
+#include <tvm/arith/analyzer.h>
+#include <tvm/tir/stmt_functor.h>
+
+
 namespace tvm {
 namespace auto_cache {
 
@@ -23,7 +30,70 @@ TaskGraphCachingAlgorithm::TaskGraphCachingAlgorithm(std::string params_file) {
     this->target = params.target;
 }
 
+//bool HasInvalidThreadIdxX(const tir::Schedule& sch) {
+//    Analyzer ana;
+//    std::optional<tvm::PrimExpr> ref_extent;
+//
+//    for (const auto& kv : sch->mod()->functions) {
+//        if (const auto* f = kv.second.as<tir::PrimFuncNode>()) {
+//            tir::PostOrderVisit(f->body, [&](const tvm::ObjectRef& obj) {
+//                if (const auto* for_node = obj.as<tir::ForNode>()) {
+//                    if (!for_node->thread_binding.defined()) return;
+//                    const auto* iv = for_node->thread_binding.as<tir::IterVarNode>();
+//                    if (!iv) return;
+//
+//                    if (iv->thread_tag == "threadIdx.x") {
+//                        if (!ref_extent.has_value()) {
+//                            ref_extent = for_node->extent;
+//                        } else if (!ana.CanProveEqual(
+//                                *ref_extent, for_node->extent)) {
+//                            throw 1;  // conflito detectado
+//                        }
+//                    }
+//                }
+//            });
+//        }
+//    }
+//    return false;
+//}
+
+
+bool HasInvalidThreadIdxX(const tir::Schedule& sch) {
+    std::optional<tvm::PrimExpr> ref_extent;
+    tvm::arith::Analyzer ana;
+
+    for (const auto& kv : sch->mod()->functions) {
+        if (const auto* f = kv.second.as<tir::PrimFuncNode>()) {
+            tir::PostOrderVisit(f->body, [&](const tvm::ObjectRef& obj) {
+                if (const auto* for_node = obj.as<tir::ForNode>()) {
+                    if (!for_node->thread_binding.defined()) return;
+
+                    const auto* iv =
+                        for_node->thread_binding.as<tir::IterVarNode>();
+                    if (!iv) return;
+
+                    if (iv->thread_tag == "threadIdx.x") {
+                        if (!ref_extent.has_value()) {
+                            ref_extent = for_node->extent;
+                        } else if (
+                            !ana.CanProveEqual(
+                                *ref_extent, for_node->extent)) {
+                            throw 1;  // conflito detectado
+                        }
+                    }
+                }
+            });
+        }
+    }
+    return false;
+}
+
 void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string task_name) {
+    bool isCuda = false;
+    if(this->target.find("cuda") != std::string::npos) {
+        isCuda = true;
+    }
+
     Target target = Target(this->target);
     std::string hash = get_hash(task_name);
 
@@ -101,9 +171,15 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
             try {
                 sch = tir::Schedule::Traced(
                     mod.value(), /*seed=*/-1, /*debug_mask=*/0,
-                    tir::ScheduleErrorRenderLevel::kNone
+                    //tir::ScheduleErrorRenderLevel::kNone
+                    //tir::ScheduleDebugMask::kVerifyGPUCode,
+                    tir::ScheduleErrorRenderLevel::kDetail
                 );
                 tir::Trace::ApplyJSONToSchedule(trace_json, sch);
+
+                if (isCuda and HasInvalidThreadIdxX(sch)) {
+                    continue;  // reject trace early
+                }
             } catch (...) {
                 continue;  // Skip invalid traces
             }
@@ -161,6 +237,10 @@ void TaskGraphCachingAlgorithm::LoadFromFile(Optional<IRModule> mod, std::string
 
 std::vector<tir::Schedule> TaskGraphCachingAlgorithm::SampleInitPopulation(int num) {
     std::vector<tir::Schedule> candidates;
+    std::cout << "==================\n";
+    std::cout << "cache hit or miss: " << this->cache.size() << std::endl;
+    std::cout << "==================\n";
+
     if(num > static_cast<int>(this->cache.size()))
         num = static_cast<int>(this->cache.size());
     for (int idx = 0; idx < num; idx++) {
