@@ -7,6 +7,7 @@ namespace auto_cache {
     struct TaskData {
         unsigned id;
         std::string hash;
+        std::string shapes;
         std::vector<std::string> space;
     };
 }

@@ -5,8 +5,11 @@
 #                                                                           
 
 #CachePath: "/home/thais.camacho/tvm-cache-ms/cache_paper_cuda/cache-vgg_16-googlenet/"
-CachePath: "/home/thais.camacho/tvm-cache-ms/cache_paper_cuda/cache-resnext_50-wide_resnet_50/"
+#CachePath: "/home/thais.camacho/tvm-cache-ms/cache_paper_cuda/cache-resnext_50-wide_resnet_50/"
 #CachePath: "/home/thais.camacho/tvm-cache-ms/cache_paper_cpu/cache-mobilenet_v2-mobilenet_v3/"
+
+#CachePath: "/home/thais.camacho/shape-cache/cache-resnet_18-resnet_50/"
+#CachePath: "/home/thais.camacho/tvm-cache-ms/cache_paper_cuda/cache-resnet_18-resnet_50/"
 
 TotalCacheSize: 500
 

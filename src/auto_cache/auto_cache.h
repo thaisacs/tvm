@@ -5,7 +5,8 @@
 #include <tvm/runtime/registry.h>
 #include <tvm/ir/function.h>
 #include <tvm/relax/expr_functor.h>
-
+#include "distance_shape.h"
+#include "util.h"
 #include <iostream>
 
 using namespace tvm;
@@ -34,6 +35,8 @@ public:
     TaskGraphCachingAlgorithm(std::string params_file);
     void LoadFromFile(Optional<IRModule> mod, std::string task_name);
     std::vector<tir::Schedule> SampleInitPopulation(int num);
+private:
+    void SortDistance(std::vector<TaskData> cache, std::vector<int> distances);
 };
 
 void Run(IRModule mod);
